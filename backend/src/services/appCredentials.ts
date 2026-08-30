@@ -1,0 +1,74 @@
+import { prisma } from "../lib/prisma";
+import { decryptSecret, encryptSecret } from "../lib/crypto";
+import { env } from "../env";
+import { MarketplaceProvider } from "../types/marketplace";
+import { getOrCreateDefaultStore } from "./store";
+
+export interface MarketplaceAppCredentials {
+  identifier: string;
+  secret: string;
+  source: "database" | "env";
+}
+
+function envFallback(provider: MarketplaceProvider): MarketplaceAppCredentials | null {
+  if (provider === "shopee" && env.shopeePartnerId && env.shopeePartnerKey) {
+    return { identifier: env.shopeePartnerId, secret: env.shopeePartnerKey, source: "env" };
+  }
+  if (provider === "mercadolivre" && env.mercadoLivreClientId && env.mercadoLivreClientSecret) {
+    return { identifier: env.mercadoLivreClientId, secret: env.mercadoLivreClientSecret, source: "env" };
+  }
+  if (provider === "tiktokshop" && env.tiktokAppKey && env.tiktokAppSecret) {
+    return { identifier: env.tiktokAppKey, secret: env.tiktokAppSecret, source: "env" };
+  }
+  return null;
+}
+
+export async function getMarketplaceAppCredentials(
+  provider: MarketplaceProvider
+): Promise<MarketplaceAppCredentials | null> {
+  const store = await getOrCreateDefaultStore();
+  const saved = await prisma.marketplaceAppCredential.findUnique({
+    where: { storeId_provider: { storeId: store.id, provider } },
+  });
+
+  if (saved) {
+    return {
+      identifier: decryptSecret(saved.identifierEnc),
+      secret: decryptSecret(saved.secretEnc),
+      source: "database",
+    };
+  }
+  return envFallback(provider);
+}
+
+export async function saveMarketplaceAppCredentials(
+  provider: MarketplaceProvider,
+  identifier: string,
+  secret: string
+) {
+  const store = await getOrCreateDefaultStore();
+  return prisma.marketplaceAppCredential.upsert({
+    where: { storeId_provider: { storeId: store.id, provider } },
+    create: {
+      storeId: store.id,
+      provider,
+      identifierEnc: encryptSecret(identifier.trim()),
+      secretEnc: encryptSecret(secret),
+    },
+    update: {
+      identifierEnc: encryptSecret(identifier.trim()),
+      secretEnc: encryptSecret(secret),
+    },
+  });
+}
+
+export async function deleteMarketplaceAppCredentials(provider: MarketplaceProvider) {
+  const store = await getOrCreateDefaultStore();
+  await prisma.marketplaceAppCredential.deleteMany({ where: { storeId: store.id, provider } });
+}
+
+export function marketplaceCredentialLabels(provider: MarketplaceProvider) {
+  if (provider === "shopee") return { identifier: "Partner ID", secret: "Partner Key" };
+  if (provider === "mercadolivre") return { identifier: "Client ID", secret: "Client Secret" };
+  return { identifier: "App Key", secret: "App Secret" };
+}

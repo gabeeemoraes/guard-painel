@@ -1,0 +1,262 @@
+// Schema do banco de dados - GUARD PAINEL
+// Por padrão usa SQLite (zero configuração para rodar localmente).
+// Para produção, troque "provider" para "postgresql" e ajuste DATABASE_URL no .env,
+// depois rode: npx prisma migrate deploy
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  permissions  String   @default("[]") // JSON string com lista de páginas permitidas
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  name      String   @default("Minha Loja")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  marketplaceAccounts MarketplaceAccount[]
+  products            Product[]
+  orders              Order[]
+  costs               Cost[]
+  financialTx         FinancialTransaction[]
+  advertisingData     AdvertisingData[]
+  syncHistory         SyncHistory[]
+  settings            Setting[]
+  appCredentials      MarketplaceAppCredential[]
+}
+
+
+// Credenciais do aplicativo de cada marketplace (Client ID/Secret, Partner ID/Key etc.).
+// São separadas dos tokens OAuth da loja e ficam criptografadas no banco.
+model MarketplaceAppCredential {
+  id            String   @id @default(cuid())
+  storeId       String
+  store         Store    @relation(fields: [storeId], references: [id])
+  provider      String
+  identifierEnc String
+  secretEnc     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([storeId, provider])
+  @@index([provider])
+}
+
+// Conta de um marketplace (Shopee, Mercado Livre ou TikTok Shop) conectada
+// à loja do sistema. Cada instalação suporta no máximo UMA conta conectada
+// por provider (@@unique([storeId, provider])).
+model MarketplaceAccount {
+  id             String   @id @default(cuid())
+  storeId        String
+  store          Store    @relation(fields: [storeId], references: [id])
+  provider       String   // "shopee" | "mercadolivre" | "tiktokshop"
+  shopId         String   // shop_id (Shopee/TikTok) ou user_id (Mercado Livre)
+  shopCipher     String?  // exigido pela TikTok Shop em toda chamada assinada
+  shopName       String?
+  region         String?
+  status         String   @default("disconnected") // disconnected | connected | error
+  lastSyncAt     DateTime?
+  lastSyncStatus String?
+  syncedOrders   Int      @default(0)
+  syncedProducts Int      @default(0)
+  syncFrom       DateTime?
+  syncTo         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  credentials    Credential?
+
+  @@unique([storeId, provider])
+  @@index([provider, shopId])
+}
+
+// Tokens de acesso - nunca expostos ao frontend
+model Credential {
+  id                   String             @id @default(cuid())
+  marketplaceAccountId String             @unique
+  marketplaceAccount   MarketplaceAccount @relation(fields: [marketplaceAccountId], references: [id])
+  accessTokenEnc       String
+  refreshTokenEnc      String
+  expiresAt            DateTime
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  storeId       String
+  store         Store    @relation(fields: [storeId], references: [id])
+  provider      String   // "shopee" | "mercadolivre" | "tiktokshop"
+  externalId    String   // item_id (Shopee/TikTok) ou id do anúncio (Mercado Livre)
+  sku           String?
+  name          String
+  price         Float    @default(0)
+  stock         Int      @default(0)
+  imageUrl      String?
+  status        String   @default("ACTIVE")
+  lastSyncedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orderItems    OrderItem[]
+  cost          Cost?
+
+  @@unique([storeId, provider, externalId])
+  @@index([storeId, sku])
+  @@index([storeId, provider])
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id])
+  provider        String   // "shopee" | "mercadolivre" | "tiktokshop"
+  externalId      String   // order_sn (Shopee), order id (Mercado Livre/TikTok)
+  status          String
+  orderDate       DateTime
+  totalAmount     Float    @default(0)
+  discountAmount  Float    @default(0)
+  shippingFee     Float    @default(0)
+  feeAmount       Float    @default(0) // taxas + comissões
+  netAmount       Float    @default(0)
+  currency        String   @default("BRL")
+  buyerUsername   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  items           OrderItem[]
+  financialTx     FinancialTransaction[]
+
+  @@unique([storeId, provider, externalId])
+  @@index([storeId, orderDate])
+  @@index([storeId, status])
+  @@index([storeId, provider])
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id])
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id])
+  sku          String?
+  name         String
+  quantity     Int      @default(1)
+  unitPrice    Float    @default(0)
+  discount     Float    @default(0)
+  totalPrice   Float    @default(0)
+  unitCost     Float    @default(0)
+  totalCost    Float    @default(0)
+  profit       Float    @default(0)
+  margin       Float    @default(0)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model FinancialTransaction {
+  id           String   @id @default(cuid())
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id])
+  orderId      String?
+  order        Order?   @relation(fields: [orderId], references: [id])
+  type         String   // sale | fee | commission | shipping | refund | adjustment | payout
+  description  String?
+  grossAmount  Float    @default(0)
+  feeAmount    Float    @default(0)
+  netAmount    Float    @default(0)
+  status       String   @default("pending") // pending | completed | divergent
+  occurredAt   DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([storeId, occurredAt])
+  @@index([storeId, type])
+}
+
+model AdvertisingData {
+  id           String   @id @default(cuid())
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id])
+  provider     String   @default("shopee") // "shopee" | "mercadolivre" | "tiktokshop"
+  campaignId   String?
+  campaignName String?
+  date         DateTime
+  spend        Float    @default(0)
+  revenue      Float    @default(0)
+  clicks       Int      @default(0)
+  impressions  Int      @default(0)
+  orders       Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([storeId, date])
+  @@index([storeId, provider])
+}
+
+model Cost {
+  id              String   @id @default(cuid())
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id])
+  productId       String   @unique
+  product         Product  @relation(fields: [productId], references: [id])
+  productCost     Float    @default(0)
+  packagingCost   Float    @default(0)
+  taxCost         Float    @default(0)
+  otherCost       Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SyncHistory {
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id])
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+  status      String   @default("running") // running | success | error
+  step        String?
+  ordersSynced   Int   @default(0)
+  productsSynced Int   @default(0)
+  errorMessage   String?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  id      String @id @default(cuid())
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+  key     String
+  value   String
+
+  @@unique([storeId, key])
+}
