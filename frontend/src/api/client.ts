@@ -1,4 +1,4 @@
-const BASE = "/api";
+const BASE = "https://guard-painel-backend.onrender.com/api";
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
