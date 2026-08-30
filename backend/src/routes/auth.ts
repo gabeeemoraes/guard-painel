@@ -42,6 +42,7 @@ router.post("/login", async (req, res) => {
   await logAudit(user.id, "login_success", undefined, req.ip);
 
   res.json({
+    token,
     user: {
       id: user.id,
       name: user.name,

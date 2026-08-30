@@ -23,10 +23,18 @@ export function signSession(payload: AuthPayload): string {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const token = req.cookies?.session;
+  const cookieToken = req.cookies?.session;
+  const authHeader = req.headers.authorization;
+  const bearerToken =
+    authHeader && /^Bearer\s+/i.test(authHeader)
+      ? authHeader.replace(/^Bearer\s+/i, "").trim()
+      : undefined;
+  const token = cookieToken || bearerToken;
+
   if (!token) {
     return res.status(401).json({ error: "Não autenticado. Faça login novamente." });
   }
+
   try {
     const payload = jwt.verify(token, env.sessionSecret) as AuthPayload;
     req.auth = payload;

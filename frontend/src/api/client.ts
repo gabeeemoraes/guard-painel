@@ -7,9 +7,14 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const sessionToken = localStorage.getItem("guard_session_token");
   const res = await fetch(BASE + path, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+      ...(options.headers || {}),
+    },
     ...options,
   });
 
@@ -28,10 +33,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 async function downloadCsv(path: string): Promise<void> {
+  const sessionToken = localStorage.getItem("guard_session_token");
   const res = await fetch(BASE + path, {
     method: "GET",
     credentials: "include",
-    headers: { Accept: "text/csv, text/plain;q=0.9, */*;q=0.8" },
+    headers: {
+      Accept: "text/csv, text/plain;q=0.9, */*;q=0.8",
+      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+    },
   });
 
   if (!res.ok) {

@@ -9,6 +9,11 @@ export interface CurrentUser {
   permissions: string[];
 }
 
+interface LoginResponse {
+  token: string;
+  user: CurrentUser;
+}
+
 interface AuthContextValue {
   user: CurrentUser | null;
   loading: boolean;
@@ -27,12 +32,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .get<{ user: CurrentUser }>("/auth/me")
       .then((res) => setUser(res.user))
-      .catch(() => setUser(null))
+      .catch(() => {
+        localStorage.removeItem("guard_session_token");
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   async function login(email: string, password: string) {
-    const res = await api.post<{ user: CurrentUser }>("/auth/login", { email, password });
+    const res = await api.post<LoginResponse>("/auth/login", { email, password });
+    localStorage.setItem("guard_session_token", res.token);
     setUser(res.user);
   }
 
@@ -42,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // segue para limpar o estado local mesmo se a requisição falhar
     }
+    localStorage.removeItem("guard_session_token");
     setUser(null);
   }
 
