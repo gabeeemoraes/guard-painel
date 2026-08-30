@@ -25,7 +25,7 @@ model User {
   role         Role
   active       Boolean    @default(true)
   permissions  String     @default("[]")
-  storeId      String?    @unique
+  storeId      String?
   store        Store?     @relation("UserStore", fields: [storeId], references: [id])
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -35,7 +35,7 @@ model User {
 model Store {
   id        String   @id @default(cuid())
   name      String   @default("Minha Empresa")
-  owner     User?    @relation("UserStore")
+  users     User[]   @relation("UserStore")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
