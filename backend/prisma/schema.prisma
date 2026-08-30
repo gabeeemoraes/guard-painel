@@ -18,21 +18,24 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String     @unique
   passwordHash String
   role         Role
-  active       Boolean  @default(true)
-  permissions  String   @default("[]") // JSON string com lista de páginas permitidas
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  active       Boolean    @default(true)
+  permissions  String     @default("[]")
+  storeId      String?    @unique
+  store        Store?     @relation("UserStore", fields: [storeId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   auditLogs    AuditLog[]
 }
 
 model Store {
   id        String   @id @default(cuid())
-  name      String   @default("Minha Loja")
+  name      String   @default("Minha Empresa")
+  owner     User?    @relation("UserStore")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -47,9 +50,6 @@ model Store {
   appCredentials      MarketplaceAppCredential[]
 }
 
-
-// Credenciais do aplicativo de cada marketplace (Client ID/Secret, Partner ID/Key etc.).
-// São separadas dos tokens OAuth da loja e ficam criptografadas no banco.
 model MarketplaceAppCredential {
   id            String   @id @default(cuid())
   storeId       String
@@ -68,25 +68,25 @@ model MarketplaceAppCredential {
 // à loja do sistema. Cada instalação suporta no máximo UMA conta conectada
 // por provider (@@unique([storeId, provider])).
 model MarketplaceAccount {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   storeId        String
-  store          Store    @relation(fields: [storeId], references: [id])
-  provider       String   // "shopee" | "mercadolivre" | "tiktokshop"
-  shopId         String   // shop_id (Shopee/TikTok) ou user_id (Mercado Livre)
-  shopCipher     String?  // exigido pela TikTok Shop em toda chamada assinada
+  store          Store     @relation(fields: [storeId], references: [id])
+  provider       String // "shopee" | "mercadolivre" | "tiktokshop"
+  shopId         String // shop_id (Shopee/TikTok) ou user_id (Mercado Livre)
+  shopCipher     String? // exigido pela TikTok Shop em toda chamada assinada
   shopName       String?
   region         String?
-  status         String   @default("disconnected") // disconnected | connected | error
+  status         String    @default("disconnected") // disconnected | connected | error
   lastSyncAt     DateTime?
   lastSyncStatus String?
-  syncedOrders   Int      @default(0)
-  syncedProducts Int      @default(0)
+  syncedOrders   Int       @default(0)
+  syncedProducts Int       @default(0)
   syncFrom       DateTime?
   syncTo         DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  credentials    Credential?
+  credentials Credential?
 
   @@unique([storeId, provider])
   @@index([provider, shopId])
@@ -105,23 +105,23 @@ model Credential {
 }
 
 model Product {
-  id            String   @id @default(cuid())
-  storeId       String
-  store         Store    @relation(fields: [storeId], references: [id])
-  provider      String   // "shopee" | "mercadolivre" | "tiktokshop"
-  externalId    String   // item_id (Shopee/TikTok) ou id do anúncio (Mercado Livre)
-  sku           String?
-  name          String
-  price         Float    @default(0)
-  stock         Int      @default(0)
-  imageUrl      String?
-  status        String   @default("ACTIVE")
-  lastSyncedAt  DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id])
+  provider     String // "shopee" | "mercadolivre" | "tiktokshop"
+  externalId   String // item_id (Shopee/TikTok) ou id do anúncio (Mercado Livre)
+  sku          String?
+  name         String
+  price        Float    @default(0)
+  stock        Int      @default(0)
+  imageUrl     String?
+  status       String   @default("ACTIVE")
+  lastSyncedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  orderItems    OrderItem[]
-  cost          Cost?
+  orderItems OrderItem[]
+  cost       Cost?
 
   @@unique([storeId, provider, externalId])
   @@index([storeId, sku])
@@ -129,25 +129,25 @@ model Product {
 }
 
 model Order {
-  id              String   @id @default(cuid())
-  storeId         String
-  store           Store    @relation(fields: [storeId], references: [id])
-  provider        String   // "shopee" | "mercadolivre" | "tiktokshop"
-  externalId      String   // order_sn (Shopee), order id (Mercado Livre/TikTok)
-  status          String
-  orderDate       DateTime
-  totalAmount     Float    @default(0)
-  discountAmount  Float    @default(0)
-  shippingFee     Float    @default(0)
-  feeAmount       Float    @default(0) // taxas + comissões
-  netAmount       Float    @default(0)
-  currency        String   @default("BRL")
-  buyerUsername   String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  storeId        String
+  store          Store    @relation(fields: [storeId], references: [id])
+  provider       String // "shopee" | "mercadolivre" | "tiktokshop"
+  externalId     String // order_sn (Shopee), order id (Mercado Livre/TikTok)
+  status         String
+  orderDate      DateTime
+  totalAmount    Float    @default(0)
+  discountAmount Float    @default(0)
+  shippingFee    Float    @default(0)
+  feeAmount      Float    @default(0) // taxas + comissões
+  netAmount      Float    @default(0)
+  currency       String   @default("BRL")
+  buyerUsername  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  items           OrderItem[]
-  financialTx     FinancialTransaction[]
+  items       OrderItem[]
+  financialTx FinancialTransaction[]
 
   @@unique([storeId, provider, externalId])
   @@index([storeId, orderDate])
@@ -156,40 +156,40 @@ model Order {
 }
 
 model OrderItem {
-  id           String   @id @default(cuid())
-  orderId      String
-  order        Order    @relation(fields: [orderId], references: [id])
-  productId    String?
-  product      Product? @relation(fields: [productId], references: [id])
-  sku          String?
-  name         String
-  quantity     Int      @default(1)
-  unitPrice    Float    @default(0)
-  discount     Float    @default(0)
-  totalPrice   Float    @default(0)
-  unitCost     Float    @default(0)
-  totalCost    Float    @default(0)
-  profit       Float    @default(0)
-  margin       Float    @default(0)
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id])
+  sku        String?
+  name       String
+  quantity   Int      @default(1)
+  unitPrice  Float    @default(0)
+  discount   Float    @default(0)
+  totalPrice Float    @default(0)
+  unitCost   Float    @default(0)
+  totalCost  Float    @default(0)
+  profit     Float    @default(0)
+  margin     Float    @default(0)
 
   @@index([orderId])
   @@index([productId])
 }
 
 model FinancialTransaction {
-  id           String   @id @default(cuid())
-  storeId      String
-  store        Store    @relation(fields: [storeId], references: [id])
-  orderId      String?
-  order        Order?   @relation(fields: [orderId], references: [id])
-  type         String   // sale | fee | commission | shipping | refund | adjustment | payout
-  description  String?
-  grossAmount  Float    @default(0)
-  feeAmount    Float    @default(0)
-  netAmount    Float    @default(0)
-  status       String   @default("pending") // pending | completed | divergent
-  occurredAt   DateTime
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id])
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  type        String // sale | fee | commission | shipping | refund | adjustment | payout
+  description String?
+  grossAmount Float    @default(0)
+  feeAmount   Float    @default(0)
+  netAmount   Float    @default(0)
+  status      String   @default("pending") // pending | completed | divergent
+  occurredAt  DateTime
+  createdAt   DateTime @default(now())
 
   @@index([storeId, occurredAt])
   @@index([storeId, type])
@@ -215,29 +215,29 @@ model AdvertisingData {
 }
 
 model Cost {
-  id              String   @id @default(cuid())
-  storeId         String
-  store           Store    @relation(fields: [storeId], references: [id])
-  productId       String   @unique
-  product         Product  @relation(fields: [productId], references: [id])
-  productCost     Float    @default(0)
-  packagingCost   Float    @default(0)
-  taxCost         Float    @default(0)
-  otherCost       Float    @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  storeId       String
+  store         Store    @relation(fields: [storeId], references: [id])
+  productId     String   @unique
+  product       Product  @relation(fields: [productId], references: [id])
+  productCost   Float    @default(0)
+  packagingCost Float    @default(0)
+  taxCost       Float    @default(0)
+  otherCost     Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model SyncHistory {
-  id          String   @id @default(cuid())
-  storeId     String
-  store       Store    @relation(fields: [storeId], references: [id])
-  startedAt   DateTime @default(now())
-  finishedAt  DateTime?
-  status      String   @default("running") // running | success | error
-  step        String?
-  ordersSynced   Int   @default(0)
-  productsSynced Int   @default(0)
+  id             String    @id @default(cuid())
+  storeId        String
+  store          Store     @relation(fields: [storeId], references: [id])
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  status         String    @default("running") // running | success | error
+  step           String?
+  ordersSynced   Int       @default(0)
+  productsSynced Int       @default(0)
   errorMessage   String?
 }
 

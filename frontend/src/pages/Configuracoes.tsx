@@ -30,7 +30,7 @@ const ALL_PAGES = [
 export default function Configuracoes() {
   const { user } = useAuth();
   const { notify } = useToast();
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = true;
 
   // Troca de senha (qualquer usuário)
   const [currentPassword, setCurrentPassword] = useState("");
@@ -141,9 +141,8 @@ export default function Configuracoes() {
             </form>
           </div>
 
-          {isAdmin && (
-            <div className="card">
-              <div className="kpi-label mb-4">Nome da loja</div>
+          <div className="card">
+              <div className="kpi-label mb-4">Minha empresa</div>
               <div className="field">
                 <label>Nome exibido no sistema</label>
                 <input value={storeName} onChange={(e) => setStoreName(e.target.value)} />
@@ -152,7 +151,6 @@ export default function Configuracoes() {
                 {savingStoreName ? "Salvando..." : "Salvar"}
               </button>
             </div>
-          )}
         </div>
 
         {isAdmin && (

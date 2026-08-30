@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, requireAdmin } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import { getOrCreateDefaultStore } from "../services/store";
 import { prisma } from "../lib/prisma";
 import { runFullSync } from "../services/syncService";
@@ -10,7 +10,7 @@ const router = Router();
 // Sincronização com progresso em tempo real (Server-Sent Events).
 // ?provider=shopee|mercadolivre|tiktokshop sincroniza só aquele marketplace.
 // Sem o parâmetro, sincroniza todos os marketplaces conectados, em sequência.
-router.get("/run", requireAuth, requireAdmin, async (req, res) => {
+router.get("/run", requireAuth, async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");

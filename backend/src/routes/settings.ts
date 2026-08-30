@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, requireAdmin } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 import { getOrCreateDefaultStore } from "../services/store";
 import { prisma } from "../lib/prisma";
 
@@ -20,7 +20,7 @@ const updateSchema = z.object({
   settings: z.record(z.string()).optional(),
 });
 
-router.patch("/", requireAdmin, async (req, res) => {
+router.patch("/", async (req, res) => {
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Dados inválidos." });
 

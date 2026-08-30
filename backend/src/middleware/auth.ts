@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../env";
 import { prisma } from "../lib/prisma";
+import { runWithStoreUser } from "../services/store";
 
 export interface AuthPayload {
   userId: string;
@@ -29,7 +30,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = jwt.verify(token, env.sessionSecret) as AuthPayload;
     req.auth = payload;
-    next();
+    return runWithStoreUser(payload.userId, next);
   } catch {
     return res.status(401).json({ error: "Sessão inválida ou expirada." });
   }
