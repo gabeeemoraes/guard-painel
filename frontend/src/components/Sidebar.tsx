@@ -32,9 +32,9 @@ export function Sidebar() {
   const { can } = useAuth();
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">
-        <span className="dot" />
-        GUARD PAINEL
+      <div className="sidebar-brand" style={{display:"flex",alignItems:"center",gap:9}}>
+        <img src="/guard-logo.svg" alt="GUARD PAINEL" style={{width:28,height:28,objectFit:"contain"}} />
+        <span>GUARD PAINEL</span>
       </div>
       <nav>
         {MENU.filter((item) => can(item.page)).map((item) => {

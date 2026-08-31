@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 180" role="img" aria-labelledby="title desc">
+  <title id="title">GUARD PAINEL</title>
+  <desc id="desc">Escudo com a letra G e o nome Guard Painel</desc>
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1677ff"/>
+      <stop offset="1" stop-color="#18a8ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="180" rx="28" fill="#071426"/>
+  <path d="M88 18 151 40v43c0 39-27 63-63 78C52 146 25 122 25 83V40z" fill="url(#g1)"/>
+  <path d="M88 34 136 51v31c0 29-19 47-48 61-29-14-48-32-48-61V51z" fill="#071426"/>
+  <path d="M115 63c-7-9-17-14-29-14-18 0-31 12-31 29 0 17 13 29 31 29 8 0 15-2 21-6V88H89v-8h28v25c-9 7-19 10-32 10-24 0-41-15-41-37s17-37 41-37c16 0 29 6 37 18z" fill="#fff"/>
+  <text x="180" y="94" fill="#fff" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800" letter-spacing="2">GUARD</text>
+  <text x="180" y="135" fill="#b9c7db" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="600" letter-spacing="8">PAINEL</text>
+</svg>
