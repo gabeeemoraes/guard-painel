@@ -92,8 +92,14 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
     }
   }
 
-  function connect(){
-    window.location.href=`https://guard-painel-backend.onrender.com/api/integrations/${provider}/connect`;
+  async function connect(){
+    try{
+      const result=await api.get<{url:string}>(`/integrations/${provider}/connect-url`);
+      if(!result.url) throw new Error("URL de autorização não foi gerada.");
+      window.location.href=result.url;
+    }catch(err:any){
+      notify(err?.message ?? "Não foi possível iniciar a conexão.","error");
+    }
   }
 
   async function disconnect(){

@@ -78,13 +78,15 @@ router.put("/:provider/app-credentials", requireAuth, async (req,res)=>{
   await logAudit(req.auth!.userId,`${provider}_app_credentials_updated`,changed?"oauth_reconnect_required":"unchanged",req.ip); res.json({ok:true,reconnectRequired:changed});
 });
 
-router.get("/:provider/connect", requireAuth, async (req,res)=>{
+router.get("/:provider/connect-url", requireAuth, async (req,res)=>{
   const provider=req.params.provider as MarketplaceProvider; const c=await getMarketplaceAppCredentials(provider); if(!c) return res.status(400).json({error:`Configure as credenciais de ${PROVIDER_LABELS[provider]} na própria tela de Integrações.`});
   const redirectUrl=`${env.backendPublicUrl}/api/integrations/${provider}/callback`;
   const state=setOAuthState(req,res,provider);
-  if(provider==="shopee") return res.redirect(shopee.buildAuthUrl({partnerId:c.identifier,partnerKey:c.secret},redirectUrl));
-  if(provider==="mercadolivre") return res.redirect(meli.buildAuthUrl({clientId:c.identifier,clientSecret:c.secret},redirectUrl,state));
-  return res.redirect(tiktok.buildAuthUrl({appKey:c.identifier,appSecret:c.secret},state));
+  let url = "";
+  if(provider==="shopee") url = shopee.buildAuthUrl({partnerId:c.identifier,partnerKey:c.secret},redirectUrl);
+  else if(provider==="mercadolivre") url = meli.buildAuthUrl({clientId:c.identifier,clientSecret:c.secret},redirectUrl,state);
+  else url = tiktok.buildAuthUrl({appKey:c.identifier,appSecret:c.secret},state);
+  return res.json({ url });
 });
 
 router.get("/:provider/callback", async (req,res)=>{
