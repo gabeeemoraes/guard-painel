@@ -21,17 +21,25 @@ import settingsRoutes from "./routes/settings";
 
 const app = express();
 
+// Render usa proxy reverso e envia X-Forwarded-For
+app.set("trust proxy", 1);
+
 app.use(
   cors({
     origin: env.frontendUrl,
     credentials: true,
   })
 );
+
 app.use(express.json());
 app.use(cookieParser());
 
 // Limite de requisições para rotas de autenticação (proteção contra força bruta)
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+});
+
 app.use("/api/auth/login", authLimiter);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
@@ -52,12 +60,23 @@ app.use("/api/sync", syncRoutes);
 app.use("/api/settings", settingsRoutes);
 
 // Tratamento centralizado de erros
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("Erro interno:", err);
-  res.status(500).json({ error: "Erro interno do servidor." });
-});
+app.use(
+  (
+    err: any,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error("Erro interno:", err);
+    res.status(500).json({ error: "Erro interno do servidor." });
+  }
+);
 
 app.listen(env.port, () => {
-  console.log(`GUARD PAINEL backend rodando em http://localhost:${env.port}`);
-  console.log("Credenciais dos marketplaces podem ser configuradas em Integrações pelo administrador.");
+  console.log(
+    `GUARD PAINEL backend rodando em http://localhost:${env.port}`
+  );
+  console.log(
+    "Credenciais dos marketplaces podem ser configuradas em Integrações pelo administrador."
+  );
 });
