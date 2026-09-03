@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { KeyRound, Plug, RefreshCw, Save, Unplug } from "lucide-react";
 import { Header } from "../components/Header";
-import { api } from "../api/client";
+import { api, BASE } from "../api/client";
 import { Loading, useToast } from "../components/Feedback";
 import { providerColor, providerLabel } from "../components/MarketplaceFilter";
 import { formatDateTime } from "../utils/format";
@@ -118,7 +118,7 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
     setSyncing(true);
     setProgressSteps([]);
     const es=new EventSource(
-      `https://guard-painel-backend.onrender.com/api/sync/run?provider=${provider}`,
+      `${BASE}/sync/run?provider=${provider}`,
       { withCredentials:true }
     );
     eventSourceRef.current=es;
