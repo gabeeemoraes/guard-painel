@@ -1,28 +1,31 @@
-export const BASE = "https://guard-painel-backend.onrender.com/api";
+const DEFAULT_API = "https://guard-painel-backend.onrender.com/api";
+export const BASE = String(import.meta.env.VITE_API_URL || DEFAULT_API).replace(/\/$/, "");
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
     super(message);
+    this.name = "ApiError";
   }
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const sessionToken = localStorage.getItem("guard_session_token");
+  const headers = new Headers(options.headers);
+  if (!headers.has("Content-Type") && options.body) headers.set("Content-Type", "application/json");
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  if (sessionToken && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${sessionToken}`);
+
   const res = await fetch(BASE + path, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-      ...(options.headers || {}),
-    },
     ...options,
+    credentials: "include",
+    headers,
   });
 
   if (!res.ok) {
     let message = `Erro ${res.status}`;
     try {
       const body = await res.json();
-      message = body.error || message;
+      message = body.error || body.message || message;
     } catch {}
     throw new ApiError(message, res.status);
   }
@@ -34,20 +37,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 async function downloadCsv(path: string): Promise<void> {
   const sessionToken = localStorage.getItem("guard_session_token");
-  const res = await fetch(BASE + path, {
-    method: "GET",
-    credentials: "include",
-    headers: {
-      Accept: "text/csv, text/plain;q=0.9, */*;q=0.8",
-      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-    },
-  });
+  const headers = new Headers({ Accept: "text/csv, text/plain;q=0.9, */*;q=0.8" });
+  if (sessionToken) headers.set("Authorization", `Bearer ${sessionToken}`);
+  const res = await fetch(BASE + path, { credentials: "include", headers });
 
   if (!res.ok) {
     let message = `Erro ${res.status}`;
     try {
       const body = await res.json();
-      message = body.error || message;
+      message = body.error || body.message || message;
     } catch {}
     throw new ApiError(message, res.status);
   }
@@ -56,7 +54,6 @@ async function downloadCsv(path: string): Promise<void> {
   const disposition = res.headers.get("content-disposition") || "";
   const match = disposition.match(/filename="([^"]+)"/i);
   const filename = match?.[1] || "relatorio.csv";
-
   const url = URL.createObjectURL(blob);
   try {
     const a = document.createElement("a");
@@ -72,12 +69,9 @@ async function downloadCsv(path: string): Promise<void> {
 
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
-  post: <T>(path: string, body?: any) =>
-    request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
-  patch: <T>(path: string, body?: any) =>
-    request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
-  put: <T>(path: string, body?: any) =>
-    request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
+  post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: body !== undefined ? JSON.stringify(body) : undefined }),
+  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body: body !== undefined ? JSON.stringify(body) : undefined }),
+  put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: body !== undefined ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   downloadCsv,
 };
