@@ -5,6 +5,7 @@
   "type": "commonjs",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "prebuild": "npm audit --audit-level=moderate",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
