@@ -1,17 +1,5 @@
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Wallet,
-  Receipt,
-  Package,
-  Landmark,
-  Megaphone,
-  BarChart3,
-  Calculator,
-  FileText,
-  Plug,
-  Settings,
-} from "lucide-react";
+import { LayoutDashboard, Wallet, Receipt, Package, Landmark, Megaphone, BarChart3, Calculator, FileText, Plug, Settings, LifeBuoy, ExternalLink } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const MENU = [
@@ -30,27 +18,9 @@ const MENU = [
 
 export function Sidebar() {
   const { can } = useAuth();
-  return (
-    <aside className="sidebar">
-      <div className="sidebar-brand" style={{display:"flex",alignItems:"center",gap:9}}>
-        <img src="/guard-logo.svg" alt="GUARD PAINEL" style={{width:28,height:28,objectFit:"contain"}} />
-        <span>GUARD PAINEL</span>
-      </div>
-      <nav>
-        {MENU.filter((item) => can(item.page)).map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) => "sidebar-link" + (isActive ? " active" : "")}
-            >
-              <Icon />
-              <span>{item.label}</span>
-            </NavLink>
-          );
-        })}
-      </nav>
-    </aside>
-  );
+  return <aside className="sidebar">
+    <div className="sidebar-brand"><img src="/guard-logo.svg" alt="GUARD PAINEL" /><span>GUARD <b>PAINEL</b></span></div>
+    <nav>{MENU.filter((item) => can(item.page)).map((item) => { const Icon = item.icon; return <NavLink key={item.path} to={item.path} className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}><Icon /><span>{item.label}</span></NavLink>; })}</nav>
+    <div className="sidebar-support"><div className="support-title">Precisa de ajuda?</div><p>Acesse nossa central de suporte.</p><button><LifeBuoy size={14} /> Abrir suporte <ExternalLink size={12} /></button></div>
+  </aside>;
 }
