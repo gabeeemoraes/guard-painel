@@ -1,0 +1,65 @@
+.notification-dropdown {
+  width: min(320px, calc(100vw - 24px));
+  right: 0;
+}
+.notification-empty {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.notification-empty svg { color: var(--al-green); flex: 0 0 auto; }
+
+.integration-provider-card {
+  min-width: 0;
+  overflow: hidden;
+}
+.integration-provider-card .input { width: 100%; min-width: 0; }
+.integration-provider-card strong { overflow-wrap: anywhere; }
+
+.marketplace-filter button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.marketplace-filter .marketplace-logo-box { border-radius: 6px; }
+
+.dashboard-kpi,
+.dashboard-card,
+.integration-card,
+.card {
+  will-change: transform;
+}
+
+.header-search input:focus,
+.input-icon-wrap input:focus {
+  outline: none;
+}
+
+.login-card .sidebar-brand img {
+  width: 31px;
+  height: 31px;
+}
+
+@media (max-width: 900px) {
+  .focus-mode-button { display: none; }
+  .route-transition { min-width: 0; }
+  .integration-provider-card:hover,
+  .dashboard-card:hover,
+  .dashboard-kpi:hover,
+  .integration-card:hover,
+  .card:hover { transform: none; }
+}
+
+@media (max-width: 640px) {
+  .login-screen { padding: 18px; }
+  .login-card { width: min(100%, 430px); }
+  .marketplace-filter { scrollbar-width: none; }
+  .marketplace-filter::-webkit-scrollbar { display: none; }
+  .integration-provider-card .flex.justify-between { gap: 12px; align-items: flex-start; }
+  .integration-provider-card .flex.justify-between strong { text-align: right; }
+  .notification-dropdown { position: fixed; top: 62px; right: 12px; left: 12px; width: auto; }
+}
