@@ -1,30 +1,16 @@
-import { Sun, Moon, LogOut } from "lucide-react";
+import { Bell, ChevronDown, Search } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
 
-export function Header({ title }: { title: string }) {
-  const { theme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
-
+export function Header({ title: _title }: { title: string }) {
+  const { user } = useAuth();
+  const initials = (user?.name || "Gabriel Moraes").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   return (
-    <header className="header">
-      <h1>{title}</h1>
-      <div className="flex items-center gap-2">
-        <div className="theme-toggle">
-          <button className={theme === "light" ? "active" : ""} onClick={() => setTheme("light")} aria-label="Modo claro">
-            <Sun />
-          </button>
-          <button className={theme === "dark" ? "active" : ""} onClick={() => setTheme("dark")} aria-label="Modo escuro">
-            <Moon />
-          </button>
-        </div>
-        <div className="text-secondary text-mono" style={{ fontSize: 12.5, marginLeft: 8 }}>
-          {user?.name} <span className="badge badge-gray">{user?.role === "ADMIN" ? "Administrador" : "Usuário"}</span>
-        </div>
-        <button className="btn btn-secondary" onClick={logout}>
-          <LogOut />
-          Sair
-        </button>
+    <header className="header dashboard-header">
+      <div className="header-search"><Search size={17} /><input placeholder="Buscar produtos, pedidos ou informações..." /><kbd>Ctrl K</kbd></div>
+      <div className="header-user-area">
+        <button className="header-icon-button" aria-label="Notificações"><Bell size={19} /><i /></button>
+        <div className="header-divider" />
+        <div className="header-user"><span className="avatar">{initials}</span><span className="header-user-copy"><strong>{user?.name || "Gabriel Moraes"}</strong><small>{user?.role === "ADMIN" ? "Administrador" : "Usuário"}</small></span><ChevronDown size={16} /></div>
       </div>
     </header>
   );
