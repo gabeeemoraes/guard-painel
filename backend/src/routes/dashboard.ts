@@ -2,12 +2,11 @@ import { Router } from "express";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { getOrCreateDefaultStore } from "../services/store";
 import { computeDashboard, computeByMarketplace, resolveRangeFromQuery, resolveProviderFromQuery } from "../services/calculations";
+import { prisma } from "../lib/prisma";
 
 const router = Router();
 router.use(requireAuth, requirePermission("dashboard"));
 
-// Visão consolidada (todos os marketplaces juntos) ou separada de UM provider,
-// dependendo de ?provider= na query.
 router.get("/", async (req, res) => {
   const store = await getOrCreateDefaultStore();
   const range = resolveRangeFromQuery(req.query);
@@ -16,12 +15,18 @@ router.get("/", async (req, res) => {
   res.json({ range, provider: provider ?? "all", ...data });
 });
 
-// Comparativo lado a lado dos 3 marketplaces (aba "Separado").
 router.get("/by-marketplace", async (req, res) => {
   const store = await getOrCreateDefaultStore();
   const range = resolveRangeFromQuery(req.query);
   const data = await computeByMarketplace(store.id, range);
   res.json({ range, marketplaces: data });
+});
+
+router.get("/recent-orders", async (req, res) => {
+  const store = await getOrCreateDefaultStore();
+  const range = resolveRangeFromQuery(req.query);
+  const orders = await prisma.order.findMany({ where: { storeId: store.id, orderDate: { gte: range.from, lte: range.to } }, orderBy: { orderDate: "desc" }, take: 5 });
+  res.json({ orders: orders.map((o) => ({ id: o.externalId, provider: o.provider, status: o.status, value: o.totalAmount, date: o.orderDate })) });
 });
 
 export default router;
