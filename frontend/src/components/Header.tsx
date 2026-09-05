@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, Search, Sun, Moon, LogOut, Maximize2, Minimize2, Menu } from "lucide-react";
+import { Bell, ChevronDown, Search, Sun, Moon, LogOut, Maximize2, Minimize2, Menu, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -9,9 +9,11 @@ export function Header({ title }: { title: string }) {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(() => localStorage.getItem("guard_focus_mode") === "1");
   const searchRef = useRef<HTMLInputElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
   const initials = (user?.name || "GU").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 
   useEffect(() => {
@@ -20,10 +22,15 @@ export function Header({ title }: { title: string }) {
         event.preventDefault();
         searchRef.current?.focus();
       }
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        setNotificationsOpen(false);
+      }
     };
     const onPointer = (event: MouseEvent) => {
-      if (menuOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
+      const target = event.target as Node;
+      if (menuOpen && userMenuRef.current && !userMenuRef.current.contains(target)) setMenuOpen(false);
+      if (notificationsOpen && notificationRef.current && !notificationRef.current.contains(target)) setNotificationsOpen(false);
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onPointer);
@@ -31,7 +38,7 @@ export function Header({ title }: { title: string }) {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("mousedown", onPointer);
     };
-  }, [menuOpen]);
+  }, [menuOpen, notificationsOpen]);
 
   async function handleLogout() {
     setMenuOpen(false);
@@ -70,10 +77,28 @@ export function Header({ title }: { title: string }) {
         >
           {focusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
         </button>
-        <button className="header-icon-button" aria-label="Notificações" type="button" data-testid="notifications-button">
-          <Bell size={19} />
-          <i />
-        </button>
+        <div className="header-user-menu" ref={notificationRef}>
+          <button
+            className="header-icon-button"
+            aria-label="Notificações"
+            aria-expanded={notificationsOpen}
+            type="button"
+            onClick={() => { setNotificationsOpen((v) => !v); setMenuOpen(false); }}
+            data-testid="notifications-button"
+          >
+            <Bell size={19} />
+          </button>
+          {notificationsOpen && (
+            <div className="user-menu-dropdown notification-dropdown" role="status" data-testid="notifications-dropdown">
+              <div className="user-menu-summary">
+                <strong>Notificações</strong>
+                <span>Avisos importantes aparecem aqui.</span>
+              </div>
+              <div className="user-menu-divider" />
+              <div className="notification-empty"><CheckCircle2 size={17} /> Tudo certo por enquanto.</div>
+            </div>
+          )}
+        </div>
         <button
           className="header-theme-button"
           type="button"
@@ -84,11 +109,11 @@ export function Header({ title }: { title: string }) {
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </button>
         <div className="header-divider" />
-        <div className="header-user-menu" ref={menuRef}>
+        <div className="header-user-menu" ref={userMenuRef}>
           <button
             className="header-user-button"
             type="button"
-            onClick={() => setMenuOpen((value) => !value)}
+            onClick={() => { setMenuOpen((value) => !value); setNotificationsOpen(false); }}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             data-testid="user-menu-button"
