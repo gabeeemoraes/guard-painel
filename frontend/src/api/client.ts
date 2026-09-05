@@ -1,5 +1,12 @@
 const DEFAULT_API = "https://guard-painel-backend.onrender.com/api";
-export const BASE = String(import.meta.env.VITE_API_URL || DEFAULT_API).replace(/\/$/, "");
+
+function normalizeApiBase(value?: string) {
+  const raw = String(value || DEFAULT_API).trim().replace(/\/$/, "");
+  if (!raw) return DEFAULT_API;
+  return /\/api$/i.test(raw) ? raw : `${raw}/api`;
+}
+
+export const BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -15,7 +22,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!headers.has("Accept")) headers.set("Accept", "application/json");
   if (sessionToken && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${sessionToken}`);
 
-  const res = await fetch(BASE + path, {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(BASE + normalizedPath, {
     ...options,
     credentials: "include",
     headers,
@@ -30,6 +38,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new ApiError(message, res.status);
   }
 
+  if (res.status === 204) return undefined as T;
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("application/json")) return res.json();
   return res.text() as unknown as T;
@@ -39,7 +48,8 @@ async function downloadCsv(path: string): Promise<void> {
   const sessionToken = localStorage.getItem("guard_session_token");
   const headers = new Headers({ Accept: "text/csv, text/plain;q=0.9, */*;q=0.8" });
   if (sessionToken) headers.set("Authorization", `Bearer ${sessionToken}`);
-  const res = await fetch(BASE + path, { credentials: "include", headers });
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(BASE + normalizedPath, { credentials: "include", headers });
 
   if (!res.ok) {
     let message = `Erro ${res.status}`;
