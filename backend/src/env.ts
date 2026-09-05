@@ -43,23 +43,21 @@ export const env = {
       : "https://partner.test-stable.shopeemobile.com";
   },
 
-  // Mercado Livre
   mercadoLivreClientId: process.env.MERCADOLIVRE_CLIENT_ID || "",
   mercadoLivreClientSecret: process.env.MERCADOLIVRE_CLIENT_SECRET || "",
-  // MLB = Brasil. Outros sites: MLA (Argentina), MLM (México), MCO (Colômbia), MLC (Chile), MLU (Uruguai)...
   mercadoLivreSiteId: process.env.MERCADOLIVRE_SITE_ID || "MLB",
 
   isMercadoLivreConfigured(): boolean {
     return Boolean(this.mercadoLivreClientId && this.mercadoLivreClientSecret);
   },
 
-  // TikTok Shop
   tiktokAppKey: process.env.TIKTOK_APP_KEY || "",
   tiktokAppSecret: process.env.TIKTOK_APP_SECRET || "",
+  tiktokServiceId: process.env.TIKTOK_SERVICE_ID || process.env.TIKTOK_APP_KEY || "",
   tiktokEnv: (process.env.TIKTOK_ENV || "sandbox") as "live" | "sandbox",
 
   isTiktokConfigured(): boolean {
-    return Boolean(this.tiktokAppKey && this.tiktokAppSecret);
+    return Boolean(this.tiktokAppKey && this.tiktokAppSecret && this.tiktokServiceId);
   },
 
   tiktokAuthHost(): string {
