@@ -17,6 +17,15 @@ export interface ShopeeTokenResponse {
   message?: string;
 }
 
+async function readJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  let data: any = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { throw new Error(`Shopee retornou resposta inválida (HTTP ${res.status}).`); }
+  if (!res.ok) throw new Error(`Shopee HTTP ${res.status}: ${data?.message || data?.error || "erro na API"}`);
+  if (data?.error) throw new Error(`Shopee: ${data.message || data.error}`);
+  return data as T;
+}
+
 export function buildAuthUrl(creds: ShopeeAppCredentials, redirectUrl: string): string {
   const path = "/api/v2/shop/auth_partner";
   const timestamp = nowTs();
@@ -41,7 +50,7 @@ export async function exchangeCodeForToken(creds: ShopeeAppCredentials, code: st
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code, shop_id: Number(shopId), partner_id: Number(creds.partnerId) }),
   });
-  return (await res.json()) as ShopeeTokenResponse;
+  return readJson<ShopeeTokenResponse>(res);
 }
 
 export async function refreshAccessToken(creds: ShopeeAppCredentials, refreshToken: string, shopId: string): Promise<ShopeeTokenResponse> {
@@ -56,7 +65,7 @@ export async function refreshAccessToken(creds: ShopeeAppCredentials, refreshTok
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken, shop_id: Number(shopId), partner_id: Number(creds.partnerId) }),
   });
-  return (await res.json()) as ShopeeTokenResponse;
+  return readJson<ShopeeTokenResponse>(res);
 }
 
 async function callShopApi<T = any>(creds: ShopeeAppCredentials, path: string, accessToken: string, shopId: string, query: Record<string, string | number> = {}, method: "GET" | "POST" = "GET", body?: Record<string, any>): Promise<T> {
@@ -70,7 +79,7 @@ async function callShopApi<T = any>(creds: ShopeeAppCredentials, path: string, a
   url.searchParams.set("sign", signature);
   for (const [k, v] of Object.entries(query)) url.searchParams.set(k, String(v));
   const res = await fetch(url.toString(), { method, headers: { "Content-Type": "application/json" }, body: method === "POST" ? JSON.stringify(body ?? {}) : undefined });
-  return (await res.json()) as T;
+  return readJson<T>(res);
 }
 
 export const getShopInfo = (c: ShopeeAppCredentials, t: string, s: string) => callShopApi(c, "/api/v2/shop/get_shop_info", t, s);
