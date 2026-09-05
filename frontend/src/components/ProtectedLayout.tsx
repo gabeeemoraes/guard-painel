@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "../context/AuthContext";
 import { Loading } from "./Feedback";
+import { ScrollControls } from "./ScrollControls";
 
 export function ProtectedLayout() {
   const { user, loading } = useAuth();
@@ -23,6 +24,7 @@ export function ProtectedLayout() {
     <div className="app-shell">
       <Sidebar />
       <div className="main-area">
+        <ScrollControls />
         <Outlet />
       </div>
     </div>
