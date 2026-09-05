@@ -1,5 +1,6 @@
 import { Layers, Split } from "lucide-react";
 import { MarketplaceProvider } from "../types/marketplace";
+import { MarketplaceLogo } from "./MarketplaceLogo";
 
 const PROVIDER_META: Record<MarketplaceProvider, { label: string; color: string }> = {
   shopee: { label: "Shopee", color: "var(--mkt-shopee)" },
@@ -21,10 +22,6 @@ export function ProviderDot({ provider }: { provider: MarketplaceProvider }) {
   return <span style={{ width: 7, height: 7, borderRadius: "50%", display: "inline-block", background: providerColor(provider) }} />;
 }
 
-/**
- * Alterna entre a visão "Consolidado" (todos os marketplaces somados) e
- * "Separado" (comparativo lado a lado de cada marketplace).
- */
 export function ConsolidatedTabs({
   view,
   onChange,
@@ -34,11 +31,11 @@ export function ConsolidatedTabs({
 }) {
   return (
     <div className="marketplace-filter">
-      <button className={view === "consolidado" ? "active" : ""} onClick={() => onChange("consolidado")}>
+      <button type="button" className={view === "consolidado" ? "active" : ""} onClick={() => onChange("consolidado")}>
         <Layers size={13} />
         Consolidado
       </button>
-      <button className={view === "separado" ? "active" : ""} onClick={() => onChange("separado")}>
+      <button type="button" className={view === "separado" ? "active" : ""} onClick={() => onChange("separado")}>
         <Split size={13} />
         Separado
       </button>
@@ -46,10 +43,6 @@ export function ConsolidatedTabs({
   );
 }
 
-/**
- * Filtro de um único marketplace por vez, para páginas de listagem
- * (Faturamento, Pedidos, Produtos, Curva ABC, Financeiro...).
- */
 export function ProviderFilter({
   value,
   onChange,
@@ -58,13 +51,13 @@ export function ProviderFilter({
   onChange: (v: MarketplaceProvider | "all") => void;
 }) {
   return (
-    <div className="marketplace-filter">
-      <button className={value === "all" ? "active" : ""} onClick={() => onChange("all")}>
+    <div className="marketplace-filter" aria-label="Filtrar por marketplace">
+      <button type="button" className={value === "all" ? "active" : ""} onClick={() => onChange("all")}>
         Todos
       </button>
       {ALL_PROVIDERS.map((p) => (
-        <button key={p} className={value === p ? "active" : ""} onClick={() => onChange(p)}>
-          <span className="dot" style={{ background: providerColor(p) }} />
+        <button type="button" key={p} className={value === p ? "active" : ""} onClick={() => onChange(p)}>
+          <MarketplaceLogo provider={p} size={20} />
           {providerLabel(p)}
         </button>
       ))}
