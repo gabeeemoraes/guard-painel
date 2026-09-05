@@ -7,43 +7,21 @@ import { api } from "../api/client";
 import { Loading, EmptyState } from "../components/Feedback";
 import { MarketplaceProvider } from "../types/marketplace";
 import { formatCurrency, formatDate } from "../utils/format";
-
 interface DashboardData { hasData:boolean; grossRevenue:number; netRevenue:number; ordersCount:number; productsCount:number; averageTicket:number; totalCosts:number; totalFees:number; totalDiscounts:number; totalShipping:number; profit:number; margin:number; cancellations:number; returns:number; adInvestment:number; adReturn:number; salesEvolution:{date:string;value:number}[]; profitEvolution:{date:string;value:number}[]; topProducts:{name:string;revenue:number}[]; worstProducts:{name:string;revenue:number}[]; alerts:string[]; }
 interface MarketplaceRow { provider:MarketplaceProvider; hasData:boolean; grossRevenue:number; netRevenue:number; ordersCount:number; productsCount:number; profit:number; margin:number; }
 interface IntegrationRow { provider:MarketplaceProvider; label:string; configured:boolean; connected:boolean; shopName?:string|null; lastSyncAt?:string|null; }
 interface RecentOrder { id:string; provider:MarketplaceProvider; status:string; value:number; date:string; }
-
-const META:Record<MarketplaceProvider,{label:string;className:string;logo:string}>={
-  shopee:{label:"Shopee",className:"shopee",logo:"https://cdn.simpleicons.org/shopee"},
-  mercadolivre:{label:"Mercado Livre",className:"meli",logo:"https://cdn.simpleicons.org/mercadolibre"},
-  tiktokshop:{label:"TikTok Shop",className:"tiktok",logo:"https://cdn.simpleicons.org/tiktok"},
-};
-
-function MarketplaceMark({provider}:{provider:MarketplaceProvider}){
-  const m=META[provider];
-  return <span className={`marketplace-mark ${m.className}`}><img src={m.logo} alt="" aria-hidden="true" /></span>;
-}
-
-function SalesChart({data}:{data:{date:string;value:number}[]}){
-  return <ResponsiveContainer width="100%" height={255}>
-    <AreaChart data={data} margin={{top:8,right:8,left:-14,bottom:0}}>
-      <defs><linearGradient id="sales-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity={.24}/><stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity={0}/></linearGradient></defs>
-      <CartesianGrid stroke="var(--grid-line)" strokeDasharray="3 3" vertical={false}/>
-      <XAxis dataKey="date" tickFormatter={v=>formatDate(v).slice(0,5)} tick={{fontSize:10,fill:"var(--text-tertiary)"}} axisLine={false} tickLine={false}/>
-      <YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} axisLine={false} tickLine={false} width={48} tickFormatter={v=>`R$ ${(Number(v)/1000).toFixed(0)}k`}/>
-      <Tooltip formatter={(v:number)=>[formatCurrency(v),"Vendas"]} labelFormatter={v=>formatDate(v)} contentStyle={{background:"var(--chart-tooltip-bg)",color:"var(--text-primary)",border:"1px solid var(--border-color)",borderRadius:10,fontSize:12,boxShadow:"var(--shadow-card)"}} itemStyle={{color:"var(--text-primary)"}} labelStyle={{color:"var(--text-secondary)"}}/>
-      <Area type="monotone" dataKey="value" stroke="var(--accent-cyan)" strokeWidth={2.5} fill="url(#sales-fill)" dot={false} activeDot={{r:4}}/>
-    </AreaChart>
-  </ResponsiveContainer>;
-}
-
+const META:Record<MarketplaceProvider,{label:string;className:string;logo:string}>={shopee:{label:"Shopee",className:"shopee",logo:"https://cdn.simpleicons.org/shopee"},mercadolivre:{label:"Mercado Livre",className:"meli",logo:"https://cdn.simpleicons.org/mercadolibre"},tiktokshop:{label:"TikTok Shop",className:"tiktok",logo:"https://cdn.simpleicons.org/tiktok"}};
+function MarketplaceMark({provider}:{provider:MarketplaceProvider}){const m=META[provider];return <span className={`marketplace-mark ${m.className}`}><img src={m.logo} alt="" aria-hidden="true" /></span>}
+function SalesChart({data}:{data:{date:string;value:number}[]}){return <ResponsiveContainer width="100%" height={255}><AreaChart data={data} margin={{top:8,right:8,left:-14,bottom:0}}><defs><linearGradient id="sales-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity={.24}/><stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="var(--grid-line)" strokeDasharray="3 3" vertical={false}/><XAxis dataKey="date" tickFormatter={v=>formatDate(v).slice(0,5)} tick={{fontSize:10,fill:"var(--text-tertiary)"}} axisLine={false} tickLine={false}/><YAxis tick={{fontSize:10,fill:"var(--text-tertiary)"}} axisLine={false} tickLine={false} width={48} tickFormatter={v=>`R$ ${(Number(v)/1000).toFixed(0)}k`}/><Tooltip formatter={(v:number)=>[formatCurrency(v),"Vendas"]} labelFormatter={v=>formatDate(v)} contentStyle={{background:"var(--chart-tooltip-bg)",color:"var(--text-primary)",border:"1px solid var(--border-color)",borderRadius:10,fontSize:12,boxShadow:"var(--shadow-card)"}} itemStyle={{color:"var(--text-primary)"}} labelStyle={{color:"var(--text-secondary)"}}/><Area type="monotone" dataKey="value" stroke="var(--accent-cyan)" strokeWidth={2.5} fill="url(#sales-fill)" dot={false} activeDot={{r:4}}/></AreaChart></ResponsiveContainer>}
 export default function Dashboard(){
  const navigate=useNavigate();
  const [range,setRange]=useState("last7"); const [data,setData]=useState<DashboardData|null>(null); const [marketplaces,setMarketplaces]=useState<MarketplaceRow[]>([]); const [integrations,setIntegrations]=useState<IntegrationRow[]>([]); const [recentOrders,setRecentOrders]=useState<RecentOrder[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState<string|null>(null);
  const load=async()=>{setLoading(true);setError(null);try{const q=`?preset=${range}`;const [d,m,i,o]=await Promise.all([api.get<DashboardData>(`/dashboard${q}`),api.get<{marketplaces:MarketplaceRow[]}>(`/dashboard/by-marketplace${q}`),api.get<{marketplaces:IntegrationRow[]}>(`/integrations`),api.get<{orders:RecentOrder[]}>(`/dashboard/recent-orders${q}`)]);setData(d);setMarketplaces(m.marketplaces);setIntegrations(i.marketplaces);setRecentOrders(o.orders)}catch(e:any){setError(e?.message||"Não foi possível carregar o dashboard.")}finally{setLoading(false)}};
  useEffect(()=>{load()},[range]);
+ useEffect(()=>{const onKeyDown=(event:KeyboardEvent)=>{if(event.key!=="PageUp"&&event.key!=="PageDown")return;const target=event.target as HTMLElement|null;if(target?.closest("input, textarea, select, [contenteditable=\"true\"]"))return;event.preventDefault();const amount=Math.max(420,Math.round(window.innerHeight*.88));window.scrollBy({top:event.key==="PageDown"?amount:-amount,behavior:"smooth"})};window.addEventListener("keydown",onKeyDown,{passive:false});return()=>window.removeEventListener("keydown",onKeyDown)},[]);
  const total=useMemo(()=>marketplaces.reduce((s,m)=>s+Number(m.grossRevenue||0),0),[marketplaces]);
- const donutGradient=useMemo(()=>{if(total<=0)return "conic-gradient(var(--donut-empty) 0 100%)";let cursor=0;const segments=marketplaces.filter(m=>Number(m.grossRevenue)>0).map(m=>{const start=cursor;cursor+=(Number(m.grossRevenue)/total)*100;return `var(--mkt-${m.provider}) ${start}% ${cursor}%`;});return `conic-gradient(${segments.join(",")})`},[marketplaces,total]);
+ const donutGradient=useMemo(()=>{if(total<=0)return "conic-gradient(var(--donut-empty) 0 100%)";let cursor=0;const segments=marketplaces.filter(m=>Number(m.grossRevenue)>0).map(m=>{const start=cursor;cursor+=(Number(m.grossRevenue)/total)*100;return `var(--mkt-${m.provider}) ${start}% ${cursor}%`});return `conic-gradient(${segments.join(",")})`},[marketplaces,total]);
  if(loading)return <><Header title="Dashboard"/><div className="content dashboard-content"><Loading label="Carregando seu painel..."/></div></>;
  if(error)return <><Header title="Dashboard"/><div className="content dashboard-content"><EmptyState icon={<AlertTriangle size={40}/>} title="Erro ao carregar dashboard" description={error}/></div></>;
  if(!data)return null;
