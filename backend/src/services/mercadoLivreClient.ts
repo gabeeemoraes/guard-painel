@@ -48,7 +48,7 @@ async function authedGet<T = any>(path: string, accessToken: string, query: Reco
 }
 
 export const getMe = (t: string) => authedGet<{id:number;nickname:string}>("/users/me", t);
-export const searchOrders = (t:string, sellerId:string, p:{dateFrom:string;dateTo:string;offset?:number;limit?:number}) => authedGet<{results:any[];paging:{total:number;offset:number;limit:number}>("/orders/search", t, { seller:sellerId, "order.date_created.from":p.dateFrom, "order.date_created.to":p.dateTo, offset:String(p.offset??0), limit:String(p.limit??50), sort:"date_desc" });
+export const searchOrders = (t:string, sellerId:string, p:{dateFrom:string;dateTo:string;offset?:number;limit?:number}) => authedGet<{results:any[];paging:{total:number;offset:number;limit:number}}>("/orders/search", t, { seller:sellerId, "order.date_created.from":p.dateFrom, "order.date_created.to":p.dateTo, offset:String(p.offset??0), limit:String(p.limit??50), sort:"date_desc" });
 export const getOrderDetail = (t:string, id:string) => authedGet<any>(`/orders/${id}`, t);
 export const searchItemsByUser = (t:string, userId:string, p:{offset?:number;limit?:number}) => authedGet<{results:string[];paging:{total:number}}>(`/users/${userId}/items/search`, t, { offset:String(p.offset??0), limit:String(p.limit??50) });
 export async function getItemsMultiget(accessToken:string,itemIds:string[]):Promise<any[]> {
