@@ -5,6 +5,7 @@ import "./styles/global.css";
 import "./styles/dashboard.css";
 import "./styles/dashboard-shell.css";
 import "./styles/responsive.css";
+import "./styles/animations.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
