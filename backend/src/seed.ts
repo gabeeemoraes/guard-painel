@@ -25,6 +25,8 @@ async function main() {
 
   const permissions = JSON.stringify(ALL_PERMISSIONS);
 
+  // Senhas de ambiente são usadas somente na criação. Um deploy nunca deve
+  // sobrescrever uma senha que o usuário já alterou dentro do painel.
   const admin = await prisma.user.upsert({
     where: { email: env.adminEmail },
     create: {
@@ -37,7 +39,6 @@ async function main() {
     },
     update: {
       name: env.adminName,
-      passwordHash: await bcrypt.hash(env.adminPassword, 10),
       role: "ADMIN",
       active: true,
       permissions,
@@ -56,7 +57,6 @@ async function main() {
     },
     update: {
       name: env.secondaryUserName,
-      passwordHash: await bcrypt.hash(env.secondaryUserPassword, 10),
       role: "USER",
       active: env.secondaryUserActive,
       permissions,
@@ -101,9 +101,7 @@ async function main() {
     data: { storeId: secondaryStore.id, permissions },
   });
 
-  console.log("OK - 2 usuários e 2 empresas configurados.");
-  console.log(`Admin: ${admin.email} -> ${adminStore.id}`);
-  console.log(`Usuário 2: ${secondary.email} -> ${secondaryStore.id}`);
+  console.log("Seed concluído: usuários e empresas verificados.");
 }
 
 main()
