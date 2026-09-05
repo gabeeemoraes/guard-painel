@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Wallet, Receipt, Package, Landmark, Megaphone, BarChart3, Calculator, FileText, Plug, Settings, LifeBuoy, ExternalLink, X, Menu } from "lucide-react";
+import { LayoutDashboard, Wallet, Receipt, Package, Landmark, Megaphone, BarChart3, Calculator, FileText, Plug, Settings, LifeBuoy, ExternalLink, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const MENU = [
@@ -34,15 +34,10 @@ export function Sidebar() {
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    return () => { document.body.style.overflow = ""; };
   }, [open]);
 
   return <>
-    <button className="header-menu-button" onClick={() => setOpen(true)} aria-label="Abrir menu" aria-expanded={open}>
-      <Menu size={20} />
-    </button>
     {open && <button className="sidebar-backdrop" onClick={() => setOpen(false)} aria-label="Fechar menu" />}
     <aside className={`sidebar${open ? " mobile-open" : ""}`}>
       <div className="sidebar-mobile-head">
