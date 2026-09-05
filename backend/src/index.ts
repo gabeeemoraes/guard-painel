@@ -21,23 +21,30 @@ import settingsRoutes from "./routes/settings";
 
 const app = express();
 
-// Render usa proxy reverso e envia X-Forwarded-For
+// Render usa proxy reverso e envia X-Forwarded-For.
 app.set("trust proxy", 1);
+app.disable("x-powered-by");
 
 app.use(
   cors({
     origin: env.frontendUrl,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-app.use(express.json());
+// Limita payloads JSON para reduzir abuso/memória excessiva.
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
-// Limite de requisições para rotas de autenticação (proteção contra força bruta)
+// Limite de requisições para rotas de autenticação (proteção contra força bruta).
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas de login. Tente novamente em alguns minutos." },
 });
 
 app.use("/api/auth/login", authLimiter);
@@ -59,24 +66,25 @@ app.use("/api/integrations", integrationsRoutes);
 app.use("/api/sync", syncRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// Tratamento centralizado de erros
+// 404 padronizado para evitar HTML do Express em chamadas da API.
+app.use((_req, res) => {
+  res.status(404).json({ error: "Rota não encontrada." });
+});
+
+// Tratamento centralizado de erros.
 app.use(
   (
-    err: any,
+    err: unknown,
     _req: express.Request,
     res: express.Response,
     _next: express.NextFunction
   ) => {
     console.error("Erro interno:", err);
+    if (res.headersSent) return;
     res.status(500).json({ error: "Erro interno do servidor." });
   }
 );
 
 app.listen(env.port, () => {
-  console.log(
-    `GUARD PAINEL backend rodando em http://localhost:${env.port}`
-  );
-  console.log(
-    "Credenciais dos marketplaces podem ser configuradas em Integrações pelo administrador."
-  );
+  console.log(`GUARD PAINEL backend rodando na porta ${env.port}`);
 });
