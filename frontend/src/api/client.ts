@@ -15,6 +15,10 @@ export class ApiError extends Error {
   }
 }
 
+function clearLocalSession() {
+  localStorage.removeItem("guard_session_token");
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const sessionToken = localStorage.getItem("guard_session_token");
   const headers = new Headers(options.headers);
@@ -23,11 +27,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (sessionToken && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${sessionToken}`);
 
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const res = await fetch(BASE + normalizedPath, {
-    ...options,
-    credentials: "include",
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(BASE + normalizedPath, {
+      ...options,
+      credentials: "include",
+      headers,
+    });
+  } catch {
+    throw new ApiError("Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.", 0);
+  }
 
   if (!res.ok) {
     let message = `Erro ${res.status}`;
@@ -35,6 +44,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       const body = await res.json();
       message = body.error || body.message || message;
     } catch {}
+    if (res.status === 401) clearLocalSession();
     throw new ApiError(message, res.status);
   }
 
@@ -49,7 +59,12 @@ async function downloadCsv(path: string): Promise<void> {
   const headers = new Headers({ Accept: "text/csv, text/plain;q=0.9, */*;q=0.8" });
   if (sessionToken) headers.set("Authorization", `Bearer ${sessionToken}`);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const res = await fetch(BASE + normalizedPath, { credentials: "include", headers });
+  let res: Response;
+  try {
+    res = await fetch(BASE + normalizedPath, { credentials: "include", headers });
+  } catch {
+    throw new ApiError("Não foi possível conectar ao servidor.", 0);
+  }
 
   if (!res.ok) {
     let message = `Erro ${res.status}`;
@@ -57,6 +72,7 @@ async function downloadCsv(path: string): Promise<void> {
       const body = await res.json();
       message = body.error || body.message || message;
     } catch {}
+    if (res.status === 401) clearLocalSession();
     throw new ApiError(message, res.status);
   }
 
