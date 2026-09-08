@@ -44,6 +44,85 @@
   height: 31px;
 }
 
+.financial-overview {
+  overflow: hidden;
+}
+.financial-subtitle {
+  margin: 4px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.financial-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 18px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.financial-step,
+.financial-deductions {
+  flex: 1 1 0;
+  min-width: 130px;
+  padding: 13px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-surface-soft, var(--bg-surface));
+}
+.financial-step {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+.financial-step span,
+.financial-deductions span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+.financial-step strong {
+  color: var(--text-primary);
+  font-size: 17px;
+}
+.financial-step.net {
+  border-color: color-mix(in srgb, var(--accent-cyan) 35%, var(--border-color));
+}
+.financial-step.profit {
+  border-color: color-mix(in srgb, var(--al-green) 40%, var(--border-color));
+}
+.financial-step.profit strong { color: var(--al-green); }
+.financial-step small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+.financial-deductions {
+  display: grid;
+  align-content: center;
+  gap: 7px;
+}
+.financial-deductions div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.financial-deductions strong {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.financial-connector {
+  align-self: center;
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 18px;
+}
+.financial-note {
+  margin-top: 12px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+.financial-note strong { color: var(--text-secondary); }
+
 @media (max-width: 900px) {
   .focus-mode-button { display: none; }
   .route-transition { min-width: 0; }
@@ -62,4 +141,7 @@
   .integration-provider-card .flex.justify-between { gap: 12px; align-items: flex-start; }
   .integration-provider-card .flex.justify-between strong { text-align: right; }
   .notification-dropdown { position: fixed; top: 62px; right: 12px; left: 12px; width: auto; }
+  .financial-flow { gap: 8px; }
+  .financial-step,
+  .financial-deductions { min-width: 145px; }
 }
