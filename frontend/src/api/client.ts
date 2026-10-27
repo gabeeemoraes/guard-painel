@@ -1,4 +1,4 @@
-const DEFAULT_API = "https://guard-painel-backend.onrender.com/api";
+const DEFAULT_API = "/api";
 
 function normalizeApiBase(value?: string) {
   const raw = String(value || DEFAULT_API).trim().replace(/\/$/, "");
@@ -6,7 +6,7 @@ function normalizeApiBase(value?: string) {
   return /\/api$/i.test(raw) ? raw : `${raw}/api`;
 }
 
-export const BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+export const BASE = DEFAULT_API;
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
