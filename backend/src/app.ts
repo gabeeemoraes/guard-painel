@@ -25,10 +25,10 @@ const allowedOrigins = new Set([
   "https://guard-painel.vercel.app",
   "https://guard-painel-moraes-corp.vercel.app",
   "https://guard-painel-git-fix-vercel-migration-moraes-corp.vercel.app",
-].map((origin) => origin.replace(/\\/$/, "")));
+].map((origin) => origin.endsWith("/") ? origin.slice(0, -1) : origin));
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin.replace(/\\/$/, ""))) return callback(null, true);
+    if (!origin || allowedOrigins.has(origin.endsWith("/") ? origin.slice(0, -1) : origin)) return callback(null, true);
     callback(new Error("Origem não permitida pelo CORS"));
   },
   credentials: true,
