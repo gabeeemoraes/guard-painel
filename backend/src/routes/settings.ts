@@ -17,7 +17,7 @@ router.get("/", async (_req, res) => {
 
 const updateSchema = z.object({
   storeName: z.string().min(1).optional(),
-  settings: z.record(z.string()).optional(),
+  settings: z.record(z.string(), z.string()).optional(),
 });
 
 router.patch("/", async (req, res) => {
