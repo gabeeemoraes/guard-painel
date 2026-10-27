@@ -19,7 +19,7 @@ const ALL_PERMISSIONS = [
 async function main() {
   if (!env.adminEmail || !env.adminPassword || !env.secondaryUserEmail || !env.secondaryUserPassword) {
     throw new Error(
-      "Preencha ADMIN_EMAIL, ADMIN_PASSWORD, SECONDARY_USER_EMAIL e SECONDARY_USER_PASSWORD no Render."
+      "Configure ADMIN_EMAIL, ADMIN_PASSWORD, SECONDARY_USER_EMAIL e SECONDARY_USER_PASSWORD no ambiente seguro do backend."
     );
   }
 
@@ -51,13 +51,13 @@ async function main() {
       name: env.secondaryUserName,
       email: env.secondaryUserEmail,
       passwordHash: await bcrypt.hash(env.secondaryUserPassword, 10),
-      role: "USER",
+      role: "ADMIN",
       active: env.secondaryUserActive,
       permissions,
     },
     update: {
       name: env.secondaryUserName,
-      role: "USER",
+      role: "ADMIN",
       active: env.secondaryUserActive,
       permissions,
     },
