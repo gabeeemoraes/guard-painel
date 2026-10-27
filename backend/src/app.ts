@@ -20,7 +20,21 @@ import settingsRoutes from "./routes/settings";
 const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
-app.use(cors({origin:env.frontendUrl,credentials:true,methods:["GET","POST","PUT","PATCH","DELETE","OPTIONS"],allowedHeaders:["Content-Type","Authorization"]}));
+const allowedOrigins = new Set([
+  env.frontendUrl,
+  "https://guard-painel.vercel.app",
+  "https://guard-painel-moraes-corp.vercel.app",
+  "https://guard-painel-git-fix-vercel-migration-moraes-corp.vercel.app",
+].map((origin) => origin.replace(/\\/$/, "")));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin.replace(/\\/$/, ""))) return callback(null, true);
+    callback(new Error("Origem não permitida pelo CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json({limit:"1mb"}));
 app.use(cookieParser());
 const authLimiter=rateLimit({windowMs:15*60*1000,max:30,standardHeaders:true,legacyHeaders:false,message:{error:"Muitas tentativas de login. Tente novamente em alguns minutos."}});
