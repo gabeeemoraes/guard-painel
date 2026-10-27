@@ -169,7 +169,7 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
 
   return <div className={`card integration-provider-card${status?.connected ? " integration-success-pop" : ""}`} style={{borderTop:`2px solid ${providerColor(provider)}`}} data-testid={`integration-card-${provider}`}>
     <div className="flex items-center gap-2 mb-4">
-      <MarketplaceLogo provider={provider} size={34} />
+      <MarketplaceLogo provider={provider} size={48} />
       <strong style={{fontFamily:"var(--font-display)",fontSize:15}}>{providerLabel(provider)}</strong>
     </div>
     {loading&&<Loading label="Verificando status..."/>}
