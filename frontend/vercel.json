@@ -8,5 +8,18 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "guard-painel.vercel.app"
+        }
+      ],
+      "destination": "https://guard-painel-moraes-corp.vercel.app/:path*",
+      "permanent": true
+    }
   ]
 }

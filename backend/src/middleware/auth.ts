@@ -22,7 +22,7 @@ export function signSession(payload: AuthPayload): string {
   return jwt.sign(payload, env.sessionSecret, { expiresIn: env.jwtExpiresIn as any });
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const cookieToken = req.cookies?.session;
   const authHeader = req.headers.authorization;
   const bearerToken =
@@ -37,8 +37,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
   try {
     const payload = jwt.verify(token, env.sessionSecret) as AuthPayload;
-    req.auth = payload;
-    return runWithStoreUser(payload.userId, next);
+    if (!payload.userId) return res.status(401).json({ error: "Sessão inválida ou expirada." });
+    const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { id: true, role: true, active: true } });
+    if (!user?.active) return res.status(401).json({ error: "Usuário inativo ou não encontrado." });
+    req.auth = { userId: user.id, role: user.role as "ADMIN" | "USER" };
+    return runWithStoreUser(user.id, next);
   } catch {
     return res.status(401).json({ error: "Sessão inválida ou expirada." });
   }

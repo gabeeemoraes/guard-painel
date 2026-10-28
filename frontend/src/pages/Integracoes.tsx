@@ -27,6 +27,7 @@ interface AppCredentialStatus {
   source:"database"|"env"|null;
   identifier:string;
   secretSaved:boolean;
+  redirectUri:string;
   labels:{identifier:string;secret:string};
 }
 
@@ -183,6 +184,9 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
         <KeyRound size={15}/><strong style={{fontSize:13}}>Credenciais da API</strong>
         {credential.configured&&<span className="badge badge-green">Configurada</span>}
       </div>
+      <label className="form-label" htmlFor={`redirect-${provider}`}>URL de redirecionamento</label>
+      <input id={`redirect-${provider}`} className="input mb-4" value={credential.redirectUri} readOnly onFocus={e=>e.currentTarget.select()}/>
+      <p className="text-secondary" style={{fontSize:12,marginBottom:14}}>Cadastre esta URL exatamente assim no aplicativo do marketplace.</p>
       <label className="form-label">{credential.labels.identifier}</label>
       <input className="input mb-4" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder={`Digite ${credential.labels.identifier}`} autoComplete="off"/>
       <label className="form-label">{credential.labels.secret}</label>

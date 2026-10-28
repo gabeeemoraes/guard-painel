@@ -1,5 +1,6 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { requireAuth, logAudit } from "../middleware/auth";
 import { getOrCreateDefaultStore, storeUserContext } from "../services/store";
@@ -20,7 +21,7 @@ function oauthCookieName(provider: MarketplaceProvider) {
 
 function setOAuthState(req: any, res: any, provider: MarketplaceProvider) {
   const state = jwt.sign(
-    { userId: req.auth!.userId, provider },
+    { userId: req.auth!.userId, provider, nonce: randomBytes(16).toString("hex") },
     env.sessionSecret,
     { expiresIn: "10m" }
   );
@@ -129,6 +130,7 @@ router.get("/:provider/app-credentials", requireAuth, async (req, res) => {
     identifier: creds?.identifier ?? "",
     secretSaved: Boolean(creds?.secret),
     labels,
+    redirectUri: `${env.backendPublicUrl}/api/integrations/${provider}/callback`,
   });
 });
 
@@ -200,10 +202,18 @@ router.get("/:provider/connect-url", requireAuth, async (req, res) => {
       redirectUrl
     );
   } else if (provider === "mercadolivre") {
+    const codeVerifier = randomBytes(32).toString("base64url");
+    res.cookie("guard_oauth_meli_verifier", codeVerifier, {
+      httpOnly: true,
+      secure: env.frontendUrl.startsWith("https://"),
+      sameSite: "lax",
+      maxAge: 10 * 60 * 1000,
+    });
     url = meli.buildAuthUrl(
       { clientId: c.identifier, clientSecret: c.secret },
       redirectUrl,
-      state
+      state,
+      codeVerifier
     );
   } else {
     url = tiktok.buildAuthUrl({ appKey: c.identifier, appSecret: c.secret }, state);
@@ -214,6 +224,9 @@ router.get("/:provider/connect-url", requireAuth, async (req, res) => {
 
 router.get("/:provider/callback", async (req, res) => {
   const provider = req.params.provider as MarketplaceProvider;
+  const cookieOptions = { httpOnly: true, secure: env.frontendUrl.startsWith("https://"), sameSite: "lax" as const };
+  res.clearCookie(oauthCookieName(provider), cookieOptions);
+  if (provider === "mercadolivre") res.clearCookie("guard_oauth_meli_verifier", cookieOptions);
 
   try {
     const cookieName = oauthCookieName(provider);
@@ -236,14 +249,14 @@ router.get("/:provider/callback", async (req, res) => {
       if (callbackState !== oauthToken) throw new Error("Estado OAuth inválido.");
     }
 
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    if (!user?.active) throw new Error("Usuário inativo ou não encontrado.");
+    if (typeof req.query.error === "string") {
+      throw new Error("Autorização recusada no marketplace. Inicie a conexão novamente.");
+    }
+
     storeUserContext.enterWith(payload.userId);
     const store = await getOrCreateDefaultStore(payload.userId);
-
-    res.clearCookie(cookieName, {
-      httpOnly: true,
-      secure: env.frontendUrl.startsWith("https://"),
-      sameSite: "lax",
-    });
 
     const c = await getMarketplaceAppCredentials(provider);
     if (!c) throw new Error("Credenciais do marketplace não configuradas.");
@@ -298,7 +311,8 @@ router.get("/:provider/callback", async (req, res) => {
       const token = await meli.exchangeCodeForToken(
         { clientId: c.identifier, clientSecret: c.secret },
         code,
-        redirectUrl
+        redirectUrl,
+        req.cookies?.guard_oauth_meli_verifier
       );
       if (!token.access_token) throw new Error(token.message || "falha_ao_autenticar");
 

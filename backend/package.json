@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "prebuild": "npm audit --audit-level=moderate",
-    "build": "prisma generate && prisma db push && tsc -p tsconfig.json && node dist/seed.js",
+    "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:deploy": "prisma migrate deploy",
     "seed": "tsx src/seed.ts",
     "db:push": "prisma db push",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:setup": "prisma db push && tsx src/seed.ts",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

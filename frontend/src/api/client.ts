@@ -1,11 +1,5 @@
 const DEFAULT_API = "/api";
 
-function normalizeApiBase(value?: string) {
-  const raw = String(value || DEFAULT_API).trim().replace(/\/$/, "");
-  if (!raw) return DEFAULT_API;
-  return /\/api$/i.test(raw) ? raw : `${raw}/api`;
-}
-
 export const BASE = DEFAULT_API;
 
 export class ApiError extends Error {

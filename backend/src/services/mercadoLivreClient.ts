@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 const API_HOST = "https://api.mercadolibre.com";
 const AUTH_HOST = "https://auth.mercadolivre.com.br";
 
@@ -13,20 +14,24 @@ async function readJson<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-export function buildAuthUrl(creds: MercadoLivreAppCredentials, redirectUrl: string, state: string): string {
+export function buildAuthUrl(creds: MercadoLivreAppCredentials, redirectUrl: string, state: string, codeVerifier?: string): string {
   const url = new URL(`${AUTH_HOST}/authorization`);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", creds.clientId);
   url.searchParams.set("redirect_uri", redirectUrl);
   url.searchParams.set("state", state);
+  if (codeVerifier) {
+    url.searchParams.set("code_challenge", createHash("sha256").update(codeVerifier).digest("base64url"));
+    url.searchParams.set("code_challenge_method", "S256");
+  }
   return url.toString();
 }
 
-export async function exchangeCodeForToken(creds: MercadoLivreAppCredentials, code: string, redirectUrl: string): Promise<MeliTokenResponse> {
+export async function exchangeCodeForToken(creds: MercadoLivreAppCredentials, code: string, redirectUrl: string, codeVerifier?: string): Promise<MeliTokenResponse> {
   const res = await fetch(`${API_HOST}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-    body: new URLSearchParams({ grant_type: "authorization_code", client_id: creds.clientId, client_secret: creds.clientSecret, code, redirect_uri: redirectUrl }),
+    body: new URLSearchParams({ grant_type: "authorization_code", client_id: creds.clientId, client_secret: creds.clientSecret, code, redirect_uri: redirectUrl, ...(codeVerifier ? { code_verifier: codeVerifier } : {}) }),
   });
   return readJson<MeliTokenResponse>(res);
 }

@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string) {
     const res = await api.post<LoginResponse>("/auth/login", { email, password });
-    localStorage.setItem("guard_session_token", res.token);
+    localStorage.removeItem("guard_session_token");
     setUser(res.user);
   }
 
