@@ -38,7 +38,7 @@ export async function runFullSync(accountId: string, onProgress: ProgressCb) {
       data: {
         lastSyncAt: new Date(),
         lastSyncStatus: "success",
-        syncedOrders: { increment: result.ordersSynced },
+        syncedOrders: await prisma.order.count({ where: { storeId: account.storeId, provider: account.provider } }),
         syncedProducts: result.productsSynced,
         status: "connected",
       },

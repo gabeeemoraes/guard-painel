@@ -21,6 +21,8 @@ test("OAuth and session regression flow", async (t) => {
   let savedCredentials: any;
   const user = () => ({ id: "test-user", active, role, storeId: "test-store", permissions: "[]" });
   prisma.user.findUnique = async () => user();
+  prisma.setting.findUnique = async () => null;
+  prisma.$transaction = async (fn: any) => fn(prisma);
   prisma.store.findUnique = async () => ({ id: "test-store" });
   prisma.marketplaceAppCredential.findUnique = async () => ({ identifierEnc: encryptSecret("123456"), secretEnc: encryptSecret("test-client-secret") });
   prisma.marketplaceAccount.findMany = async () => [];
@@ -38,6 +40,7 @@ test("OAuth and session regression flow", async (t) => {
       tokenBody = new URLSearchParams(init.body);
       return new Response(JSON.stringify({ access_token: "test-access", refresh_token: "test-refresh", expires_in: 3600, user_id: 12 }), { headers: { "content-type": "application/json" } });
     }
+    if (String(input) === "https://api.mercadolibre.com/users/me") return new Response(JSON.stringify({ id: 12, nickname: "Test Shop" }));
     return realFetch(input, init);
   }) as typeof fetch;
   const server = app.listen(0, "127.0.0.1");

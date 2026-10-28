@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
+process.env.TZ = process.env.APP_TIME_ZONE || "America/Sao_Paulo";
 
 function required(name: string, fallback?: string): string {
   const v = process.env[name] ?? fallback;
@@ -29,7 +30,7 @@ export const env = {
 
   shopeePartnerId: process.env.SHOPEE_PARTNER_ID || "",
   shopeePartnerKey: process.env.SHOPEE_PARTNER_KEY || "",
-  shopeeEnv: (process.env.SHOPEE_ENV || "test") as "live" | "test",
+  shopeeEnv: (process.env.SHOPEE_ENV || "live") as "live" | "test",
   backendPublicUrl: process.env.BACKEND_PUBLIC_URL || `http://localhost:${process.env.PORT || 4000}`,
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
 
@@ -53,8 +54,8 @@ export const env = {
 
   tiktokAppKey: process.env.TIKTOK_APP_KEY || "",
   tiktokAppSecret: process.env.TIKTOK_APP_SECRET || "",
-  tiktokServiceId: process.env.TIKTOK_SERVICE_ID || process.env.TIKTOK_APP_KEY || "",
-  tiktokEnv: (process.env.TIKTOK_ENV || "sandbox") as "live" | "sandbox",
+  tiktokServiceId: process.env.TIKTOK_SERVICE_ID || "",
+  tiktokEnv: (process.env.TIKTOK_ENV || "live") as "live" | "sandbox",
 
   isTiktokConfigured(): boolean {
     return Boolean(this.tiktokAppKey && this.tiktokAppSecret && this.tiktokServiceId);

@@ -46,7 +46,16 @@ export function resolveRangeFromQuery(query: any): DateRange {
     return { from: f, to: t };
   }
   if (query.from && query.to) {
-    return { from: new Date(query.from), to: new Date(query.to) };
+    const parseDate = (value: unknown, end: boolean) => {
+      if (typeof value !== "string") throw Object.assign(new Error("Período inválido."), { status: 400 });
+      const dayOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+      const date = new Date(dayOnly ? `${value}T${end ? "23:59:59.999" : "00:00:00"}` : value);
+      if (!Number.isFinite(date.getTime())) throw Object.assign(new Error("Período inválido."), { status: 400 });
+      return date;
+    };
+    const range = { from: parseDate(query.from, false), to: parseDate(query.to, true) };
+    if (range.from > range.to) throw Object.assign(new Error("A data inicial deve ser anterior à final."), { status: 400 });
+    return range;
   }
   // padrão: últimos 30 dias
   const f = new Date(now);
@@ -96,8 +105,8 @@ export async function computeDashboard(storeId: string, range: DateRange, provid
   const totalCosts = orders.reduce((s, o) => s + o.items.reduce((si, it) => si + it.totalCost, 0), 0);
   const profit = orders.reduce((s, o) => s + o.items.reduce((si, it) => si + it.profit, 0), 0);
   const margin = grossRevenue > 0 ? profit / grossRevenue : 0;
-  const cancellations = orders.filter((o) => o.status === "CANCELLED").length;
-  const returns = orders.filter((o) => o.status === "RETURNED" || o.status === "REFUNDED").length;
+  const cancellations = orders.filter((o) => ["CANCELLED", "CANCELED"].includes(o.status.toUpperCase())).length;
+  const returns = orders.filter((o) => ["RETURNED", "REFUNDED"].includes(o.status.toUpperCase())).length;
 
   const adAgg = await prisma.advertisingData.aggregate({
     where: { storeId, date: { gte: range.from, lte: range.to }, ...(provider ? { provider } : {}) },
@@ -109,7 +118,7 @@ export async function computeDashboard(storeId: string, range: DateRange, provid
   // Evolução diária
   const byDay = new Map<string, { revenue: number; profit: number }>();
   for (const o of orders) {
-    const key = o.orderDate.toISOString().slice(0, 10);
+    const key = `${o.orderDate.getFullYear()}-${String(o.orderDate.getMonth() + 1).padStart(2, "0")}-${String(o.orderDate.getDate()).padStart(2, "0")}`;
     const entry = byDay.get(key) ?? { revenue: 0, profit: 0 };
     entry.revenue += o.totalAmount;
     entry.profit += o.items.reduce((s, it) => s + it.profit, 0);

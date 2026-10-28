@@ -7,10 +7,10 @@ import { getMarketplaceAppCredentials } from "./appCredentials";
 type ProgressCb = (step: string) => void;
 type MarketplaceAccount = Awaited<ReturnType<typeof prisma.marketplaceAccount.findUniqueOrThrow>>;
 
-async function getValidAccessToken(account: MarketplaceAccount): Promise<{ accessToken: string; shopId: string; app: shopee.ShopeeAppCredentials }> {
+export async function getValidAccessToken(account: MarketplaceAccount): Promise<{ accessToken: string; shopId: string; app: shopee.ShopeeAppCredentials }> {
   const appCreds = await getMarketplaceAppCredentials("shopee");
   if (!appCreds) throw new Error("Credenciais da Shopee não configuradas em Integrações.");
-  const app = { partnerId: appCreds.identifier, partnerKey: appCreds.secret };
+  const app = { partnerId: appCreds.identifier, partnerKey: appCreds.secret, environment: appCreds.environment };
   const credentials = await prisma.credential.findUnique({ where: { marketplaceAccountId: account.id } });
   if (!credentials) {
     throw new Error("Loja Shopee não conectada. Conecte em Integrações → Shopee.");
@@ -44,10 +44,10 @@ export async function syncShopee(account: MarketplaceAccount, onProgress: Progre
   const { accessToken, shopId, app } = await getValidAccessToken(account);
 
   const shopInfo = await shopee.getShopInfo(app, accessToken, shopId);
-  if (shopInfo?.shop_name) {
+  if (shopInfo?.response?.shop_name || shopInfo?.shop_name) {
     await prisma.marketplaceAccount.update({
       where: { id: account.id },
-      data: { shopName: shopInfo.shop_name, status: "connected" },
+      data: { shopName: shopInfo.response?.shop_name || shopInfo.shop_name, status: "connected" },
     });
   }
 
@@ -89,17 +89,21 @@ export async function syncShopee(account: MarketplaceAccount, onProgress: Progre
   const timeTo = Math.floor(Date.now() / 1000);
   const timeFrom = timeTo - 90 * 24 * 60 * 60;
 
-  let cursor = "";
-  const allOrderSns: string[] = [];
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const listRes = await shopee.getOrderList(app, accessToken, shopId, { timeFrom, timeTo, cursor });
-    const orderList = listRes?.response?.order_list ?? [];
-    for (const o of orderList) allOrderSns.push(o.order_sn);
-    if (!listRes?.response?.more) break;
-    cursor = listRes?.response?.next_cursor;
-    if (!cursor) break;
+  const orderSns = new Set<string>();
+  for (let windowFrom = timeFrom; windowFrom < timeTo; windowFrom += 14 * 24 * 60 * 60) {
+    const windowTo = Math.min(timeTo, windowFrom + 14 * 24 * 60 * 60 - 1);
+    let cursor = "";
+    const seenCursors = new Set<string>();
+    while (true) {
+      const listRes = await shopee.getOrderList(app, accessToken, shopId, { timeFrom: windowFrom, timeTo: windowTo, cursor });
+      for (const order of listRes?.response?.order_list ?? []) orderSns.add(order.order_sn);
+      if (!listRes?.response?.more) break;
+      cursor = listRes?.response?.next_cursor;
+      if (!cursor || seenCursors.has(cursor)) throw new Error("A Shopee retornou uma paginação inválida. Tente sincronizar novamente.");
+      seenCursors.add(cursor);
+    }
   }
+  const allOrderSns = [...orderSns];
 
   onProgress("Processando financeiro...");
   let ordersSynced = 0;

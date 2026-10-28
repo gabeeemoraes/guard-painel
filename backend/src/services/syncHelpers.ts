@@ -46,7 +46,8 @@ export interface NormalizedOrder {
  * para o produto correspondente.
  */
 export async function upsertOrderWithItems(storeId: string, provider: MarketplaceProvider, o: NormalizedOrder) {
-  const order = await prisma.order.upsert({
+  return prisma.$transaction(async tx => {
+  const order = await tx.order.upsert({
     where: { storeId_provider_externalId: { storeId, provider, externalId: o.externalId } },
     create: {
       storeId,
@@ -72,12 +73,12 @@ export async function upsertOrderWithItems(storeId: string, provider: Marketplac
     },
   });
 
-  await prisma.orderItem.deleteMany({ where: { orderId: order.id } });
+  await tx.orderItem.deleteMany({ where: { orderId: order.id } });
 
   for (const it of o.items) {
     let product = null;
     if (it.externalItemId) {
-      product = await prisma.product.findUnique({
+      product = await tx.product.findUnique({
         where: { storeId_provider_externalId: { storeId, provider, externalId: it.externalItemId } },
         include: { cost: true },
       });
@@ -90,7 +91,7 @@ export async function upsertOrderWithItems(storeId: string, provider: Marketplac
     const profit = totalPrice - totalCost;
     const margin = totalPrice > 0 ? profit / totalPrice : 0;
 
-    await prisma.orderItem.create({
+    await tx.orderItem.create({
       data: {
         orderId: order.id,
         productId: product?.id ?? null,
@@ -108,8 +109,8 @@ export async function upsertOrderWithItems(storeId: string, provider: Marketplac
     });
   }
 
-  await prisma.financialTransaction.deleteMany({ where: { orderId: order.id } });
-  await prisma.financialTransaction.create({
+  await tx.financialTransaction.deleteMany({ where: { orderId: order.id } });
+  await tx.financialTransaction.create({
     data: {
       storeId,
       orderId: order.id,
@@ -124,4 +125,5 @@ export async function upsertOrderWithItems(storeId: string, provider: Marketplac
   });
 
   return order;
+  }, { timeout: 20000 });
 }

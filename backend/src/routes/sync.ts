@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { getOrCreateDefaultStore } from "../services/store";
 import { prisma } from "../lib/prisma";
 import { runFullSync } from "../services/syncService";
@@ -10,17 +10,21 @@ const router = Router();
 // Sincronização com progresso em tempo real (Server-Sent Events).
 // ?provider=shopee|mercadolivre|tiktokshop sincroniza só aquele marketplace.
 // Sem o parâmetro, sincroniza todos os marketplaces conectados, em sequência.
-router.get("/run", requireAuth, async (req, res) => {
+router.get("/run", requireAuth, requirePermission("integracoes"), async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-store, no-transform");
+  res.setHeader("X-Accel-Buffering", "no");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders?.();
 
   const send = (event: string, data: any) => {
+    if (res.destroyed || res.writableEnded) return;
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
 
+  const heartbeat = setInterval(() => { if (!res.destroyed && !res.writableEnded) res.write(": heartbeat\n\n"); }, 15000);
+  res.once("close", () => clearInterval(heartbeat));
   try {
     const store = await getOrCreateDefaultStore();
     const providerParam = req.query.provider as string | undefined;
@@ -60,11 +64,12 @@ router.get("/run", requireAuth, async (req, res) => {
   } catch (err: any) {
     send("error", { message: String(err?.message ?? err) });
   } finally {
+    clearInterval(heartbeat);
     res.end();
   }
 });
 
-router.get("/history", requireAuth, async (_req, res) => {
+router.get("/history", requireAuth, requirePermission("integracoes"), async (_req, res) => {
   const store = await getOrCreateDefaultStore();
   const history = await prisma.syncHistory.findMany({
     where: { storeId: store.id },

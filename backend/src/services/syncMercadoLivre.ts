@@ -7,7 +7,7 @@ import { getMarketplaceAppCredentials } from "./appCredentials";
 type ProgressCb = (step: string) => void;
 type MarketplaceAccount = Awaited<ReturnType<typeof prisma.marketplaceAccount.findUniqueOrThrow>>;
 
-async function getValidAccessToken(account: MarketplaceAccount): Promise<string> {
+export async function getValidAccessToken(account: MarketplaceAccount): Promise<string> {
   const appCreds = await getMarketplaceAppCredentials("mercadolivre");
   if (!appCreds) throw new Error("Credenciais do Mercado Livre não configuradas em Integrações.");
   const app = { clientId: appCreds.identifier, clientSecret: appCreds.secret };

@@ -7,10 +7,10 @@ import { getMarketplaceAppCredentials } from "./appCredentials";
 type ProgressCb = (step: string) => void;
 type MarketplaceAccount = Awaited<ReturnType<typeof prisma.marketplaceAccount.findUniqueOrThrow>>;
 
-async function getValidAccessToken(account: MarketplaceAccount): Promise<{ accessToken: string; app: tiktok.TiktokAppCredentials }> {
+export async function getValidAccessToken(account: MarketplaceAccount): Promise<{ accessToken: string; app: tiktok.TiktokAppCredentials }> {
   const appCreds = await getMarketplaceAppCredentials("tiktokshop");
   if (!appCreds) throw new Error("Credenciais do TikTok Shop não configuradas em Integrações.");
-  const app = { appKey: appCreds.identifier, appSecret: appCreds.secret };
+  const app = { appKey: appCreds.identifier, appSecret: appCreds.secret, environment: appCreds.environment };
   const credentials = await prisma.credential.findUnique({ where: { marketplaceAccountId: account.id } });
   if (!credentials) {
     throw new Error("Loja TikTok Shop não conectada. Conecte em Integrações → TikTok Shop.");
@@ -53,6 +53,7 @@ export async function syncTiktokShop(account: MarketplaceAccount, onProgress: Pr
   onProgress("Processando produtos...");
   let productsSynced = 0;
   let pageToken = "";
+  const productPages = new Set<string>();
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const res: any = await tiktok.searchProducts(app, accessToken, shopId, shopCipher, {
@@ -61,11 +62,14 @@ export async function syncTiktokShop(account: MarketplaceAccount, onProgress: Pr
     });
     const products = res?.data?.products ?? [];
 
-    for (const p of products) {
+    for (const summary of products) {
+      const details: any = await tiktok.getProduct(app, accessToken, shopId, shopCipher, String(summary.id));
+      const p = details?.data;
+      if (!p?.id) throw new Error("TikTok Shop retornou um produto incompleto. Tente novamente.");
       const skus = p.skus ?? [];
       const firstSku = skus[0];
-      const price = Number(firstSku?.price?.sale_price ?? firstSku?.price?.original_price ?? 0);
-      const stock = skus.reduce((s: number, sk: any) => s + Number(sk?.inventory?.[0]?.quantity ?? 0), 0);
+      const price = Number(firstSku?.price?.sale_price ?? firstSku?.price?.amount ?? firstSku?.price?.original_price ?? 0);
+      const stock = skus.reduce((s: number, sk: any) => s + (sk.inventory ?? []).reduce((total: number, warehouse: any) => total + Number(warehouse.quantity ?? 0), 0), 0);
 
       await upsertProduct(account.storeId, "tiktokshop", {
         externalId: String(p.id),
@@ -73,7 +77,7 @@ export async function syncTiktokShop(account: MarketplaceAccount, onProgress: Pr
         name: p.title || `Produto ${p.id}`,
         price,
         stock,
-        imageUrl: p?.main_images?.[0]?.url || null,
+        imageUrl: p?.main_images?.[0]?.urls?.[0] || p?.main_images?.[0]?.url || null,
         status: p.status || "ACTIVATE",
       });
       productsSynced++;
@@ -81,6 +85,8 @@ export async function syncTiktokShop(account: MarketplaceAccount, onProgress: Pr
 
     pageToken = res?.data?.next_page_token || "";
     if (!pageToken || products.length === 0) break;
+    if (productPages.has(pageToken)) throw new Error("TikTok Shop repetiu a página de produtos. Tente novamente.");
+    productPages.add(pageToken);
   }
 
   onProgress("Buscando pedidos...");
@@ -89,6 +95,7 @@ export async function syncTiktokShop(account: MarketplaceAccount, onProgress: Pr
 
   const allOrders: any[] = [];
   let orderPageToken = "";
+  const orderPages = new Set<string>();
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const res: any = await tiktok.searchOrders(app, accessToken, shopId, shopCipher, {
@@ -98,9 +105,17 @@ export async function syncTiktokShop(account: MarketplaceAccount, onProgress: Pr
       pageToken: orderPageToken || undefined,
     });
     const orders = res?.data?.orders ?? [];
-    allOrders.push(...orders);
+    const ids = orders.map((order: any) => String(order.id));
+    for (let i = 0; i < ids.length; i += 20) {
+      const details: any = await tiktok.getOrderDetail(app, accessToken, shopId, shopCipher, ids.slice(i, i + 20));
+      const detailedOrders = details?.data?.orders;
+      if (!Array.isArray(detailedOrders) || detailedOrders.length !== ids.slice(i, i + 20).length) throw new Error("TikTok Shop retornou detalhes incompletos dos pedidos. Tente novamente.");
+      allOrders.push(...detailedOrders);
+    }
     orderPageToken = res?.data?.next_page_token || "";
     if (!orderPageToken || orders.length === 0) break;
+    if (orderPages.has(orderPageToken)) throw new Error("TikTok Shop repetiu a página de pedidos. Tente novamente.");
+    orderPages.add(orderPageToken);
   }
 
   onProgress("Processando financeiro...");
@@ -108,7 +123,7 @@ export async function syncTiktokShop(account: MarketplaceAccount, onProgress: Pr
   for (const o of allOrders) {
     const orderDate = new Date(Number(o.create_time ?? now) * 1000);
     const totalAmount = Number(o.payment?.total_amount ?? 0);
-    const feeAmount = Number(o.payment?.platform_discount ?? 0) + Number(o.payment?.commission_fee ?? 0);
+    const feeAmount = Number(o.payment?.commission_fee ?? 0);
     const shippingFee = Number(o.payment?.shipping_fee ?? 0);
     const discountAmount = Number(o.payment?.seller_discount ?? 0);
     const netAmount = Number(o.payment?.total_amount ?? totalAmount) - feeAmount;
@@ -129,7 +144,7 @@ export async function syncTiktokShop(account: MarketplaceAccount, onProgress: Pr
         externalItemId: it.product_id ? String(it.product_id) : null,
         sku: it.seller_sku || null,
         name: it.product_name || `Item ${it.product_id}`,
-        quantity: 1,
+        quantity: Number(it.quantity ?? 1),
         unitPrice: Number(it.sale_price ?? 0),
       })),
     });

@@ -1,3 +1,4 @@
+import { marketplaceFetch } from "../lib/marketplaceHttp";
 import { createHash } from "node:crypto";
 const API_HOST = "https://api.mercadolibre.com";
 const AUTH_HOST = "https://auth.mercadolivre.com.br";
@@ -14,6 +15,11 @@ async function readJson<T>(res: Response): Promise<T> {
   return data as T;
 }
 
+function validateToken(token: MeliTokenResponse): MeliTokenResponse {
+  if (!token.access_token || !token.refresh_token || !Number.isFinite(Number(token.expires_in)) || Number(token.expires_in) <= 0) throw new Error("Mercado Livre retornou tokens incompletos. Reconecte a loja.");
+  return token;
+}
+
 export function buildAuthUrl(creds: MercadoLivreAppCredentials, redirectUrl: string, state: string, codeVerifier?: string): string {
   const url = new URL(`${AUTH_HOST}/authorization`);
   url.searchParams.set("response_type", "code");
@@ -28,27 +34,27 @@ export function buildAuthUrl(creds: MercadoLivreAppCredentials, redirectUrl: str
 }
 
 export async function exchangeCodeForToken(creds: MercadoLivreAppCredentials, code: string, redirectUrl: string, codeVerifier?: string): Promise<MeliTokenResponse> {
-  const res = await fetch(`${API_HOST}/oauth/token`, {
+  const res = await marketplaceFetch(`${API_HOST}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
     body: new URLSearchParams({ grant_type: "authorization_code", client_id: creds.clientId, client_secret: creds.clientSecret, code, redirect_uri: redirectUrl, ...(codeVerifier ? { code_verifier: codeVerifier } : {}) }),
   });
-  return readJson<MeliTokenResponse>(res);
+  return validateToken(await readJson<MeliTokenResponse>(res));
 }
 
 export async function refreshAccessToken(creds: MercadoLivreAppCredentials, refreshToken: string): Promise<MeliTokenResponse> {
-  const res = await fetch(`${API_HOST}/oauth/token`, {
+  const res = await marketplaceFetch(`${API_HOST}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
     body: new URLSearchParams({ grant_type: "refresh_token", client_id: creds.clientId, client_secret: creds.clientSecret, refresh_token: refreshToken }),
   });
-  return readJson<MeliTokenResponse>(res);
+  return validateToken(await readJson<MeliTokenResponse>(res));
 }
 
 async function authedGet<T = any>(path: string, accessToken: string, query: Record<string, string> = {}): Promise<T> {
   const url = new URL(API_HOST + path);
   for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
-  const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } });
+  const res = await marketplaceFetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } });
   return readJson<T>(res);
 }
 
@@ -59,7 +65,7 @@ export const searchItemsByUser = (t:string, userId:string, p:{offset?:number;lim
 export async function getItemsMultiget(accessToken:string,itemIds:string[]):Promise<any[]> {
   const url=new URL(`${API_HOST}/items`);
   url.searchParams.set("ids",itemIds.join(","));
-  const res=await fetch(url.toString(),{headers:{Authorization:`Bearer ${accessToken}`,Accept:"application/json"}});
+  const res=await marketplaceFetch(url.toString(),{headers:{Authorization:`Bearer ${accessToken}`,Accept:"application/json"}});
   const data=await readJson<any[]>(res);
-  return data.map((entry)=>entry.body??entry);
+  return data.map((entry)=>{ if (entry.code !== undefined && entry.code !== 200) throw new Error(`Mercado Livre não conseguiu carregar um produto (HTTP ${entry.code}).`); return entry.body??entry; });
 }

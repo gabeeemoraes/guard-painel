@@ -59,5 +59,9 @@ app.use("/api/integrations",integrationsRoutes);
 app.use("/api/sync",syncRoutes);
 app.use("/api/settings",settingsRoutes);
 app.use((_req,res)=>{res.status(404).json({error:"Rota não encontrada."});});
-app.use((err:unknown,_req:express.Request,res:express.Response,_next:express.NextFunction)=>{console.error("Erro interno:",err);if(!res.headersSent)res.status(500).json({error:"Erro interno do servidor."});});
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const status = err?.status === 400 || err?.type === "entity.parse.failed" ? 400 : err?.status === 413 ? 413 : 500;
+  if (status === 500) console.error("Erro interno:", err);
+  if (!res.headersSent) res.status(status).json({ error: status === 400 ? (err?.type === "entity.parse.failed" ? "JSON inválido." : err.message) : status === 413 ? "Requisição muito grande." : "Erro interno do servidor." });
+});
 export default app;

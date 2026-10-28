@@ -28,6 +28,8 @@ interface AppCredentialStatus {
   identifier:string;
   secretSaved:boolean;
   redirectUri:string;
+  environment:"live"|"test";
+  serviceId:string;
   labels:{identifier:string;secret:string};
 }
 
@@ -53,6 +55,10 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
   const [credential,setCredential]=useState<AppCredentialStatus|null>(null);
   const [identifier,setIdentifier]=useState("");
   const [secret,setSecret]=useState("");
+  const [environment,setEnvironment]=useState<"live"|"test">("live");
+  const [serviceId,setServiceId]=useState("");
+  const [connecting,setConnecting]=useState(false);
+  const [checking,setChecking]=useState(false);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState<string|null>(null);
   const [saving,setSaving]=useState(false);
@@ -71,6 +77,8 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
       setStatus(st);
       setCredential(cr);
       setIdentifier(cr.identifier||"");
+      setEnvironment(cr.environment||"live");
+      setServiceId(cr.serviceId||"");
     }catch(err:any){
       setStatus(null);
       setCredential(null);
@@ -89,11 +97,12 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
     if(!credential)return;
     if(!identifier.trim()){notify(`Preencha ${credential.labels.identifier}.`,"error");return;}
     if(!secret.trim()&&!credential.secretSaved){notify(`Preencha ${credential.labels.secret}.`,"error");return;}
+    if(provider==="tiktokshop"&&!serviceId.trim()){notify("Preencha o Service ID do TikTok Shop.","error");return;}
     setSaving(true);
     try{
       const result=await api.put<{ok:boolean;reconnectRequired:boolean}>(
         `/integrations/${provider}/app-credentials`,
-        {identifier:identifier.trim(),secret:secret.trim()||undefined}
+        {identifier:identifier.trim(),secret:secret.trim()||undefined,environment,serviceId:serviceId.trim()}
       );
       setSecret("");
       notify(
@@ -112,13 +121,25 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
   }
 
   async function connect(){
+    if(connecting)return;
+    setConnecting(true);
     try{
       const result=await api.get<{url:string}>(`/integrations/${provider}/connect-url`);
       if(!result.url) throw new Error("URL de autorização não foi gerada.");
       window.location.assign(result.url);
     }catch(err:any){
       notify(err?.message ?? "Não foi possível iniciar a conexão.","error");
+      setConnecting(false);
     }
+  }
+
+  async function checkConnection(){
+    setChecking(true);
+    try{
+      const result=await api.post<{ok:boolean;message:string}>(`/integrations/${provider}/check`);
+      notify(result.message,"success");
+    }catch(err:any){notify(err?.message??"Não foi possível verificar a conexão.","error");}
+    finally{setChecking(false);}
   }
 
   async function disconnect(){
@@ -187,10 +208,12 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
       <label className="form-label" htmlFor={`redirect-${provider}`}>URL de redirecionamento</label>
       <input id={`redirect-${provider}`} className="input mb-4" value={credential.redirectUri} readOnly onFocus={e=>e.currentTarget.select()}/>
       <p className="text-secondary" style={{fontSize:12,marginBottom:14}}>Cadastre esta URL exatamente assim no aplicativo do marketplace.</p>
-      <label className="form-label">{credential.labels.identifier}</label>
-      <input className="input mb-4" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder={`Digite ${credential.labels.identifier}`} autoComplete="off"/>
-      <label className="form-label">{credential.labels.secret}</label>
-      <input className="input" type="password" value={secret} onChange={e=>setSecret(e.target.value)} placeholder={credential.secretSaved?"Salvo — deixe vazio para manter":`Digite ${credential.labels.secret}`} autoComplete="new-password"/>
+      {provider==="shopee"&&<><label className="form-label" htmlFor={`environment-${provider}`}>Ambiente da API</label><select id={`environment-${provider}`} className="input mb-4" value={environment} onChange={e=>setEnvironment(e.target.value as "live"|"test")}><option value="live">Produção — loja real</option><option value="test">Teste — Sandbox</option></select></>}
+      {provider==="tiktokshop"&&<><label className="form-label" htmlFor={`service-${provider}`}>Service ID</label><input id={`service-${provider}`} className="input mb-4" value={serviceId} onChange={e=>setServiceId(e.target.value)} placeholder="Service ID do link de autorização" autoComplete="off"/><p className="text-secondary" style={{fontSize:12,marginBottom:14}}>No Partner Center, copie o valor de service_id do link de autorização do vendedor. Ele é diferente da App Key.</p></>}
+      <label className="form-label" htmlFor={`identifier-${provider}`}>{credential.labels.identifier}</label>
+      <input id={`identifier-${provider}`} className="input mb-4" value={identifier} onChange={e=>setIdentifier(e.target.value)} placeholder={`Digite ${credential.labels.identifier}`} autoComplete="off"/>
+      <label className="form-label" htmlFor={`secret-${provider}`}>{credential.labels.secret}</label>
+      <input id={`secret-${provider}`} className="input" type="password" value={secret} onChange={e=>setSecret(e.target.value)} placeholder={credential.secretSaved?"Salvo — deixe vazio para manter":`Digite ${credential.labels.secret}`} autoComplete="new-password"/>
       <button className="btn btn-secondary mt-4" onClick={saveCredentials} disabled={saving}>
         <Save/>{saving?"Salvando...":"Salvar credenciais"}
       </button>
@@ -201,7 +224,7 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
     </div>}
     {!loading&&!error&&status&&status.configured&&!status.connected&&<div>
       <span className="badge badge-gray">Não conectado</span>
-      <div className="mt-4"><button className="btn btn-primary" onClick={connect}><Plug/>Conectar</button></div>
+      <div className="mt-4"><button className="btn btn-primary" onClick={connect} disabled={connecting||saving}><Plug/>{connecting?"Abrindo autorização...":"Conectar"}</button></div>
     </div>}
     {!loading&&!error&&status&&status.connected&&<div>
       <span className="badge badge-green mb-4">Conectado</span>
@@ -211,6 +234,7 @@ function MarketplaceCard({ provider, onSyncAll }: { provider:MarketplaceProvider
         <div className="flex justify-between" style={{padding:"4px 0"}}><span className="text-secondary">Pedidos</span><strong className="text-mono">{status.syncedOrders??0}</strong></div>
         <div className="flex justify-between" style={{padding:"4px 0"}}><span className="text-secondary">Produtos</span><strong className="text-mono">{status.syncedProducts??0}</strong></div>
       </div>
+      <button className="btn btn-secondary mb-4" onClick={checkConnection} disabled={checking||syncing}>{checking?"Verificando...":"Verificar conexão"}</button>
       <div className="flex gap-2">
         <button className="btn btn-primary" onClick={runSync} disabled={syncing}><RefreshCw className={syncing?"spin":""}/>{syncing?"Sincronizando...":"Sincronizar"}</button>
         <button className="btn btn-danger" onClick={disconnect} disabled={syncing} aria-label={`Desconectar ${providerLabel(provider)}`}><Unplug/></button>

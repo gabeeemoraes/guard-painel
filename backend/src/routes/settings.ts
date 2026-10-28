@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { getOrCreateDefaultStore } from "../services/store";
 import { prisma } from "../lib/prisma";
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requirePermission("configuracoes"));
 
 router.get("/", async (_req, res) => {
   const store = await getOrCreateDefaultStore();
-  const settings = await prisma.setting.findMany({ where: { storeId: store.id } });
+  const settings = await prisma.setting.findMany({ where: { storeId: store.id, key: { not: { startsWith: "marketplace_options_" } } } });
   const map: Record<string, string> = {};
   for (const s of settings) map[s.key] = s.value;
   res.json({ storeName: store.name, settings: map });
@@ -24,6 +24,7 @@ router.patch("/", async (req, res) => {
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Dados inválidos." });
 
+  if (Object.keys(parsed.data.settings ?? {}).some(key => key.startsWith("marketplace_options_"))) return res.status(400).json({ error: "Altere as opções de marketplace pela tela de Integrações." });
   const store = await getOrCreateDefaultStore();
   if (parsed.data.storeName) {
     await prisma.store.update({ where: { id: store.id }, data: { name: parsed.data.storeName } });

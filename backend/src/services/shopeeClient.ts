@@ -1,7 +1,8 @@
+import { marketplaceFetch } from "../lib/marketplaceHttp";
 import crypto from "crypto";
 import { env } from "../env";
 
-export interface ShopeeAppCredentials { partnerId: string; partnerKey: string }
+export interface ShopeeAppCredentials { partnerId: string; partnerKey: string; environment?: "live" | "test" }
 
 function sign(baseString: string, partnerKey: string): string {
   return crypto.createHmac("sha256", partnerKey).update(baseString).digest("hex");
@@ -26,15 +27,22 @@ async function readJson<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-export function buildAuthUrl(creds: ShopeeAppCredentials, redirectUrl: string): string {
+function validateToken(token: ShopeeTokenResponse): ShopeeTokenResponse {
+  if (!token.access_token || !token.refresh_token || !Number.isFinite(Number(token.expire_in)) || Number(token.expire_in) <= 0) throw new Error("Shopee retornou tokens incompletos. Reconecte a loja.");
+  return token;
+}
+
+export function buildAuthUrl(creds: ShopeeAppCredentials, redirectUrl: string, state?: string): string {
   const path = "/api/v2/shop/auth_partner";
   const timestamp = nowTs();
   const signature = sign(`${creds.partnerId}${path}${timestamp}`, creds.partnerKey);
-  const url = new URL(env.shopeeHost() + path);
+  const url = new URL((creds.environment === "test" ? "https://partner.test-stable.shopeemobile.com" : "https://partner.shopeemobile.com") + path);
   url.searchParams.set("partner_id", creds.partnerId);
   url.searchParams.set("timestamp", String(timestamp));
   url.searchParams.set("sign", signature);
-  url.searchParams.set("redirect", redirectUrl);
+  const callback = new URL(redirectUrl);
+  if (state) callback.searchParams.set("state", state);
+  url.searchParams.set("redirect", callback.toString());
   return url.toString();
 }
 
@@ -42,43 +50,43 @@ export async function exchangeCodeForToken(creds: ShopeeAppCredentials, code: st
   const path = "/api/v2/auth/token/get";
   const timestamp = nowTs();
   const signature = sign(`${creds.partnerId}${path}${timestamp}`, creds.partnerKey);
-  const url = new URL(env.shopeeHost() + path);
+  const url = new URL((creds.environment === "test" ? "https://partner.test-stable.shopeemobile.com" : "https://partner.shopeemobile.com") + path);
   url.searchParams.set("partner_id", creds.partnerId);
   url.searchParams.set("timestamp", String(timestamp));
   url.searchParams.set("sign", signature);
-  const res = await fetch(url.toString(), {
+  const res = await marketplaceFetch(url.toString(), {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code, shop_id: Number(shopId), partner_id: Number(creds.partnerId) }),
   });
-  return readJson<ShopeeTokenResponse>(res);
+  return validateToken(await readJson<ShopeeTokenResponse>(res));
 }
 
 export async function refreshAccessToken(creds: ShopeeAppCredentials, refreshToken: string, shopId: string): Promise<ShopeeTokenResponse> {
   const path = "/api/v2/auth/access_token/get";
   const timestamp = nowTs();
   const signature = sign(`${creds.partnerId}${path}${timestamp}`, creds.partnerKey);
-  const url = new URL(env.shopeeHost() + path);
+  const url = new URL((creds.environment === "test" ? "https://partner.test-stable.shopeemobile.com" : "https://partner.shopeemobile.com") + path);
   url.searchParams.set("partner_id", creds.partnerId);
   url.searchParams.set("timestamp", String(timestamp));
   url.searchParams.set("sign", signature);
-  const res = await fetch(url.toString(), {
+  const res = await marketplaceFetch(url.toString(), {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken, shop_id: Number(shopId), partner_id: Number(creds.partnerId) }),
   });
-  return readJson<ShopeeTokenResponse>(res);
+  return validateToken(await readJson<ShopeeTokenResponse>(res));
 }
 
 async function callShopApi<T = any>(creds: ShopeeAppCredentials, path: string, accessToken: string, shopId: string, query: Record<string, string | number> = {}, method: "GET" | "POST" = "GET", body?: Record<string, any>): Promise<T> {
   const timestamp = nowTs();
   const signature = sign(`${creds.partnerId}${path}${timestamp}${accessToken}${shopId}`, creds.partnerKey);
-  const url = new URL(env.shopeeHost() + path);
+  const url = new URL((creds.environment === "test" ? "https://partner.test-stable.shopeemobile.com" : "https://partner.shopeemobile.com") + path);
   url.searchParams.set("partner_id", creds.partnerId);
   url.searchParams.set("timestamp", String(timestamp));
   url.searchParams.set("access_token", accessToken);
   url.searchParams.set("shop_id", shopId);
   url.searchParams.set("sign", signature);
   for (const [k, v] of Object.entries(query)) url.searchParams.set(k, String(v));
-  const res = await fetch(url.toString(), { method, headers: { "Content-Type": "application/json" }, body: method === "POST" ? JSON.stringify(body ?? {}) : undefined });
+  const res = await marketplaceFetch(url.toString(), { method, headers: { "Content-Type": "application/json" }, body: method === "POST" ? JSON.stringify(body ?? {}) : undefined });
   return readJson<T>(res);
 }
 
