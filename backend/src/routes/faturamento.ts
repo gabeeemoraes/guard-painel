@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { getOrCreateDefaultStore } from "../services/store";
-import { resolveRangeFromQuery, resolveProviderFromQuery } from "../services/calculations";
+import { countsAsSale, resolveRangeFromQuery, resolveProviderFromQuery } from "../services/calculations";
 import { prisma } from "../lib/prisma";
 
 const router = Router();
@@ -41,7 +41,12 @@ router.get("/", async (req, res) => {
   ]);
 
   const rows = orders.flatMap((o) =>
-    o.items.map((it) => ({
+    o.items.map((it) => {
+      const validSale = countsAsSale(o.status);
+      const itemsTotal = o.items.reduce((sum, item) => sum + item.totalPrice, 0);
+      const itemNet = validSale && itemsTotal > 0 ? o.netAmount * (it.totalPrice / itemsTotal) : 0;
+      const itemProfit = validSale ? itemNet - it.totalCost : 0;
+      return {
       orderId: o.externalId,
       date: o.orderDate,
       product: it.name,
@@ -52,19 +57,20 @@ router.get("/", async (req, res) => {
       fees: o.items.length > 0 ? o.feeAmount / o.items.length : 0,
       shipping: o.items.length > 0 ? o.shippingFee / o.items.length : 0,
       cost: it.totalCost,
-      profit: it.profit,
-      margin: it.margin,
+      profit: itemProfit,
+      margin: validSale && it.totalPrice > 0 ? itemProfit / it.totalPrice : 0,
       status: o.status,
-    }))
+    };})
   );
 
-  const bruto = summary.reduce((s, o) => s + o.totalAmount, 0);
-  const liquido = summary.reduce((s, o) => s + o.netAmount, 0);
-  const descontos = summary.reduce((s, o) => s + o.discountAmount, 0);
-  const taxas = summary.reduce((s, o) => s + o.feeAmount, 0);
-  const frete = summary.reduce((s, o) => s + o.shippingFee, 0);
-  const custo = summary.reduce((s, o) => s + o.items.reduce((si, it) => si + it.totalCost, 0), 0);
-  const lucro = summary.reduce((s, o) => s + o.items.reduce((si, it) => si + it.profit, 0), 0);
+  const sales = summary.filter((o) => countsAsSale(o.status));
+  const bruto = sales.reduce((s, o) => s + o.totalAmount, 0);
+  const liquido = sales.reduce((s, o) => s + o.netAmount, 0);
+  const descontos = sales.reduce((s, o) => s + o.discountAmount, 0);
+  const taxas = sales.reduce((s, o) => s + o.feeAmount, 0);
+  const frete = sales.reduce((s, o) => s + o.shippingFee, 0);
+  const custo = sales.reduce((s, o) => s + o.items.reduce((si, it) => si + it.totalCost, 0), 0);
+  const lucro = liquido - custo;
   const margem = bruto > 0 ? lucro / bruto : 0;
 
   res.json({

@@ -10,3 +10,29 @@
 @media (prefers-reduced-motion:no-preference){.integration-card{transition:transform .15s ease,border-color .15s ease,background .15s ease}.dashboard-card,.dashboard-kpi{transition:border-color .15s ease,box-shadow .15s ease}}
 @media(max-width:1200px){.integration-strip{grid-template-columns:repeat(2,1fr)}.dashboard-main-grid,.dashboard-bottom-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:720px){.dashboard-content{padding:16px}.dashboard-header{padding:10px 16px}.header-search{display:none}.header-divider{margin:0 9px}.header-user{min-width:0}.header-user-copy{display:none}.header-menu-button{display:grid;place-items:center;width:38px;height:38px;border:0;background:transparent;color:var(--text-primary);font-size:18px}.header-title-mobile{display:block;font-weight:600;font-size:15px;margin-right:auto;margin-left:5px}.header-user-area{margin-left:auto}.integration-strip,.kpi-grid{grid-template-columns:1fr}.dashboard-toolbar{align-items:stretch;flex-direction:column}.dashboard-date-select{min-width:0}.donut-wrap{flex-direction:column;padding:12px 0}.recent-order-head,.recent-order{grid-template-columns:45px 1.2fr .8fr;min-width:0}.recent-order>strong:nth-child(4),.recent-order>span:nth-child(5),.recent-order-head>span:nth-child(4),.recent-order-head>span:nth-child(5){display:none}.best-product{grid-template-columns:36px minmax(0,1fr) auto}.product-growth{display:none}}
+
+/* Indicadores de vendas e transparência sobre a atualização dos dados. */
+.dashboard-filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dashboard-filters .dashboard-date-select{min-width:185px}
+.dashboard-filters .dashboard-provider-select{min-width:193px}
+.integration-card small{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-tertiary);font-size:10px}
+.integration-card small.sync-failed{color:#d06363}
+.dashboard-sync-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;margin-bottom:16px;border:1px solid var(--border-color);border-radius:11px;background:var(--bg-surface-alt);color:var(--text-secondary);font-size:11.5px}
+.dashboard-sync-banner.needs-sync{border-color:rgba(230,169,65,.35);background:color-mix(in srgb,#e6a941 8%,var(--bg-surface))}
+.sync-copy,.sync-actions{display:flex;align-items:center;gap:9px}
+.sync-copy{min-width:0;flex:1}.sync-copy svg{flex:0 0 auto}
+.sync-actions{flex-wrap:wrap}
+.sync-actions button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-color);border-radius:7px;background:var(--bg-surface);color:var(--text-primary);padding:7px 10px;font:inherit;font-size:11px;cursor:pointer}
+.sync-actions button:hover{border-color:var(--accent-blue);color:var(--accent-blue)}
+.sales-kpi-grid .featured-kpi{border-color:color-mix(in srgb,var(--accent-blue) 45%,var(--border-color));background:color-mix(in srgb,var(--accent-blue) 4%,var(--bg-surface))}
+.sales-change{display:inline-flex;align-items:center;gap:3px;font-weight:600}.sales-change.positive{color:#13966f}.sales-change.negative{color:#d06363}
+.sales-quality{display:flex;gap:18px;align-items:center;flex-wrap:wrap;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-surface);padding:10px 14px;margin-bottom:16px}
+.sales-quality>div{display:flex;align-items:baseline;gap:9px;color:var(--text-secondary);font-size:11px}.sales-quality strong{font-size:15px;color:var(--text-primary)}
+.sales-quality p{margin:0;flex:1 1 360px;color:var(--text-tertiary);font-size:10.5px;line-height:1.5}
+.dashboard-card-hint{margin:5px 0 0;font-size:10.5px;color:var(--text-tertiary)}
+.chart-empty{min-height:255px;display:grid;place-items:center;color:var(--text-tertiary);font-size:12px;text-align:center}
+.recent-order .order-status.status-danger i{background:#db6a69}
+.recent-order .order-status.status-success i{background:#2dd4a7}
+.recent-order .order-status.status-neutral i{background:#e5b52d}
+@media(max-width:800px){.dashboard-filters{width:100%}.dashboard-filters .dashboard-date-select{flex:1 1 175px;min-width:0}.dashboard-filters .dashboard-provider-select{flex:1 1 175px;min-width:0}}
+@media(max-width:720px){.dashboard-sync-banner{align-items:stretch;flex-direction:column}.sync-actions{justify-content:space-between}.sales-quality{gap:9px 16px}.sales-quality p{flex-basis:100%}}

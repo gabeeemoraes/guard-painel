@@ -6,6 +6,28 @@ export interface DateRange {
   to: Date;
 }
 
+// Compara janelas de mesma duração, inclusive em filtros personalizados.
+export function previousRange(range: DateRange): DateRange {
+  const duration = range.to.getTime() - range.from.getTime() + 1;
+  return { from: new Date(range.from.getTime() - duration), to: new Date(range.from.getTime() - 1) };
+}
+
+export function percentageChange(current: number, previous: number): number | null {
+  return previous > 0 ? ((current - previous) / previous) * 100 : null;
+}
+
+// Os canais fornecem status diferentes. Removemos somente cancelamentos e
+// devoluções confirmados; não presumimos que um pedido pendente foi pago.
+export function countsAsSale(status: string): boolean {
+  const normalized = status.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  return !(
+    normalized === "CANCELED" || normalized.startsWith("CANCELED_") ||
+    normalized === "CANCELLED" || normalized.startsWith("CANCELLED_") ||
+    normalized === "REFUNDED" || normalized.startsWith("REFUNDED_") ||
+    normalized === "RETURNED" || normalized.startsWith("RETURNED_")
+  );
+}
+
 // Lê o filtro de marketplace da query string. Ausente ou "all" = visão
 // consolidada (todos os marketplaces juntos). Um provider específico = visão
 // separada daquele marketplace apenas.
@@ -97,16 +119,18 @@ export async function computeDashboard(storeId: string, range: DateRange, provid
     };
   }
 
-  const grossRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
-  const netRevenue = orders.reduce((s, o) => s + o.netAmount, 0);
-  const totalFees = orders.reduce((s, o) => s + o.feeAmount, 0);
-  const totalDiscounts = orders.reduce((s, o) => s + o.discountAmount, 0);
-  const totalShipping = orders.reduce((s, o) => s + o.shippingFee, 0);
-  const totalCosts = orders.reduce((s, o) => s + o.items.reduce((si, it) => si + it.totalCost, 0), 0);
-  const profit = orders.reduce((s, o) => s + o.items.reduce((si, it) => si + it.profit, 0), 0);
+  const sales = orders.filter((o) => countsAsSale(o.status));
+  const grossRevenue = sales.reduce((s, o) => s + o.totalAmount, 0);
+  const netRevenue = sales.reduce((s, o) => s + o.netAmount, 0);
+  const totalFees = sales.reduce((s, o) => s + o.feeAmount, 0);
+  const totalDiscounts = sales.reduce((s, o) => s + o.discountAmount, 0);
+  const totalShipping = sales.reduce((s, o) => s + o.shippingFee, 0);
+  const totalCosts = sales.reduce((s, o) => s + o.items.reduce((si, it) => si + it.totalCost, 0), 0);
+  // Receita líquida já reflete os descontos/taxas informados pelo canal.
+  const profit = netRevenue - totalCosts;
   const margin = grossRevenue > 0 ? profit / grossRevenue : 0;
-  const cancellations = orders.filter((o) => ["CANCELLED", "CANCELED"].includes(o.status.toUpperCase())).length;
-  const returns = orders.filter((o) => ["RETURNED", "REFUNDED"].includes(o.status.toUpperCase())).length;
+  const cancellations = orders.filter((o) => /^(CANCELLED|CANCELED)(_|$)/.test(o.status.trim().toUpperCase().replace(/[\s-]+/g, "_"))).length;
+  const returns = orders.filter((o) => /^(RETURNED|REFUNDED)(_|$)/.test(o.status.trim().toUpperCase().replace(/[\s-]+/g, "_"))).length;
 
   const adAgg = await prisma.advertisingData.aggregate({
     where: { storeId, date: { gte: range.from, lte: range.to }, ...(provider ? { provider } : {}) },
@@ -117,11 +141,11 @@ export async function computeDashboard(storeId: string, range: DateRange, provid
 
   // Evolução diária
   const byDay = new Map<string, { revenue: number; profit: number }>();
-  for (const o of orders) {
+  for (const o of sales) {
     const key = `${o.orderDate.getFullYear()}-${String(o.orderDate.getMonth() + 1).padStart(2, "0")}-${String(o.orderDate.getDate()).padStart(2, "0")}`;
     const entry = byDay.get(key) ?? { revenue: 0, profit: 0 };
     entry.revenue += o.totalAmount;
-    entry.profit += o.items.reduce((s, it) => s + it.profit, 0);
+    entry.profit += o.netAmount - o.items.reduce((s, it) => s + it.totalCost, 0);
     byDay.set(key, entry);
   }
   const sortedDays = Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b));
@@ -133,7 +157,7 @@ export async function computeDashboard(storeId: string, range: DateRange, provid
     string,
     { name: string; sku: string | null; revenue: number; quantity: number; profit: number; margin: number }
   >();
-  for (const o of orders) {
+  for (const o of sales) {
     for (const it of o.items) {
       const key = it.productId ?? it.name;
       const entry = productMap.get(key) ?? {
@@ -169,9 +193,9 @@ export async function computeDashboard(storeId: string, range: DateRange, provid
     hasData: true,
     grossRevenue,
     netRevenue,
-    ordersCount: orders.length,
+    ordersCount: sales.length,
     productsCount: await prisma.product.count({ where: { storeId, ...(provider ? { provider } : {}) } }),
-    averageTicket: orders.length > 0 ? grossRevenue / orders.length : 0,
+    averageTicket: sales.length > 0 ? grossRevenue / sales.length : 0,
     totalCosts,
     totalFees,
     totalDiscounts,
@@ -258,17 +282,19 @@ export async function computeByMarketplace(storeId: string, range: DateRange) {
         };
       }
 
-      const grossRevenue = orders.reduce((s, o) => s + o.totalAmount, 0);
-      const netRevenue = orders.reduce((s, o) => s + o.netAmount, 0);
-      const profit = orders.reduce((s, o) => s + o.items.reduce((si, it) => si + it.profit, 0), 0);
+      const sales = orders.filter((o) => countsAsSale(o.status));
+      const grossRevenue = sales.reduce((s, o) => s + o.totalAmount, 0);
+      const netRevenue = sales.reduce((s, o) => s + o.netAmount, 0);
+      const totalCosts = sales.reduce((s, o) => s + o.items.reduce((si, it) => si + it.totalCost, 0), 0);
+      const profit = netRevenue - totalCosts;
       const margin = grossRevenue > 0 ? profit / grossRevenue : 0;
 
       return {
         provider,
-        hasData: true,
+        hasData: sales.length > 0,
         grossRevenue,
         netRevenue,
-        ordersCount: orders.length,
+        ordersCount: sales.length,
         productsCount,
         profit,
         margin,

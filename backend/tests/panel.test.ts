@@ -9,7 +9,7 @@ process.env.FRONTEND_URL = "https://guard-painel-moraes-corp.vercel.app";
 const app = require("../src/app").default;
 const { prisma } = require("../src/lib/prisma");
 const bcrypt = require("bcryptjs");
-const { resolveRangeFromQuery } = require("../src/services/calculations");
+const { resolveRangeFromQuery, previousRange, percentageChange, countsAsSale } = require("../src/services/calculations");
 
 test("Panel API, session cookies and reporting dates", async t => {
   const user = { id: "test-user", name: "Test", email: "test@example.invalid", passwordHash: await bcrypt.hash("isolated-test-password", 4), role: "ADMIN", active: true, permissions: "[]", storeId: "isolated-store" };
@@ -56,6 +56,69 @@ test("Panel API, session cookies and reporting dates", async t => {
       const r=resolveRangeFromQuery({from:"2026-10-01",to:"2026-10-28"});
       assert.equal(r.from.toISOString(),"2026-10-01T03:00:00.000Z");
       assert.equal(r.to.toISOString(),"2026-10-29T02:59:59.999Z");
+    });
+    await t.test("sales comparison uses an equally long, non-overlapping previous period", () => {
+      const r=resolveRangeFromQuery({from:"2026-10-10",to:"2026-10-12"});
+      const previous=previousRange(r);
+      assert.equal(previous.to.getTime()+1,r.from.getTime());
+      assert.equal(previous.to.getTime()-previous.from.getTime(),r.to.getTime()-r.from.getTime());
+      assert.equal(percentageChange(120,100),20);
+      assert.equal(percentageChange(10,0),null);
+    });
+    await t.test("cancelled and refunded orders do not inflate the dashboard, ranking or comparisons", async () => {
+      assert.equal(countsAsSale("PAID"),true);
+      assert.equal(countsAsSale("CANCELLED"),false);
+      assert.equal(countsAsSale("canceled_by_buyer"),false);
+      assert.equal(countsAsSale("REFUNDED"),false);
+      const originalFindMany=prisma.order.findMany;
+      const makeOrder=(id:string,date:string,status:string,amount:number,net:number,cost:number)=>({
+        id,externalId:id,storeId:"isolated-store",provider:"shopee",status,
+        orderDate:new Date(date),totalAmount:amount,netAmount:net,feeAmount:amount-net,
+        discountAmount:0,shippingFee:0,
+        items:[{name:"Produto teste",productId:"sku-1",sku:"SKU-1",totalPrice:amount,quantity:1,totalCost:cost,profit:amount-cost}],
+      });
+      const rows=[
+        makeOrder("current","2026-10-12T12:00:00Z","PAID",100,90,20),
+        makeOrder("canceled","2026-10-12T12:00:00Z","CANCELLED",200,190,0),
+        makeOrder("refunded","2026-10-12T12:00:00Z","REFUNDED",75,70,0),
+        makeOrder("prior","2026-10-11T12:00:00Z","PAID",50,45,15),
+      ];
+      try {
+        prisma.order.findMany=async({where}:any)=>rows.filter(o=>
+          o.orderDate>=where.orderDate.gte && o.orderDate<=where.orderDate.lte && (!where.provider||where.provider===o.provider)
+        );
+        const res=await fetch(`${base}/api/dashboard?from=2026-10-12&to=2026-10-12`,{headers:{cookie}});
+        assert.equal(res.status,200);
+        const body=await res.json();
+        assert.equal(body.grossRevenue,100);
+        assert.equal(body.netRevenue,90);
+        assert.equal(body.ordersCount,1);
+        assert.equal(body.averageTicket,100);
+        assert.equal(body.profit,70);
+        assert.equal(body.margin,0.7);
+        assert.equal(body.cancellations,1);
+        assert.equal(body.returns,1);
+        assert.equal(body.salesEvolution[0].value,100);
+        assert.equal(body.topProducts[0].revenue,100);
+        assert.equal(body.comparison.previousRevenue,50);
+        assert.equal(body.comparison.previousOrders,1);
+        assert.equal(body.comparison.revenueChangePercent,100);
+        assert.equal(body.comparison.ordersChangePercent,0);
+        const byMarket=await fetch(`${base}/api/dashboard/by-marketplace?from=2026-10-12&to=2026-10-12`,{headers:{cookie}});
+        const marketplace=(await byMarket.json()).marketplaces.find((m:any)=>m.provider==="shopee");
+        assert.equal(marketplace.grossRevenue,100);
+        assert.equal(marketplace.ordersCount,1);
+        assert.equal(marketplace.profit,70);
+        const revenueRes=await fetch(`${base}/api/faturamento?from=2026-10-12&to=2026-10-12`,{headers:{cookie}});
+        const revenueBody=await revenueRes.json();
+        assert.equal(revenueBody.summary.bruto,100);
+        assert.equal(revenueBody.summary.liquido,90);
+        assert.equal(revenueBody.summary.lucro,70);
+        assert.equal(revenueBody.rows.find((row:any)=>row.orderId==="current").profit,70);
+        assert.equal(revenueBody.rows.find((row:any)=>row.orderId==="canceled").profit,0);
+      } finally {
+        prisma.order.findMany=originalFindMany;
+      }
     });
     await t.test("invalid dates and malformed JSON produce 400 instead of 500", async () => {
       assert.equal((await fetch(`${base}/api/dashboard?from=invalid&to=2026-10-28`,{headers:{cookie}})).status,400);

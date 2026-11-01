@@ -63,6 +63,7 @@ router.get("/", requireAuth, requirePermission("integracoes"), async (_req, res)
           connected: account?.status === "connected",
           shopName: account?.shopName ?? null,
           lastSyncAt: account?.lastSyncAt ?? null,
+          lastSyncStatus: account?.lastSyncStatus ?? null,
         };
       })
     ),
